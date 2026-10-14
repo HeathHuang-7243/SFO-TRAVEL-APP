@@ -86,7 +86,7 @@ public class StorageStartupTest {
         launch();
         evaluate("document.querySelector('.settings-trigger').click(); true");
         await("!!document.querySelector('.settings-panel')");
-        evaluate("if(document.documentElement.dataset.theme !== 'dark') document.querySelector('.theme-switch').click(); true");
+        selectTheme("dark");
         awaitBars(true);
         evaluate("document.querySelector('[aria-label=\"关闭设置\"], [aria-label=\"Close settings\"]').click(); true");
         await("!document.querySelector('.settings-panel')");
@@ -94,8 +94,7 @@ public class StorageStartupTest {
         reload();
         awaitBars(true);
         evaluate("document.querySelector('.settings-trigger').click(); true");
-        await("!!document.querySelector('.theme-switch')");
-        evaluate("document.querySelector('.theme-switch').click(); true");
+        selectTheme("light");
         awaitBars(false);
         evaluate("document.querySelector('[aria-label=\"关闭设置\"], [aria-label=\"Close settings\"]').click(); true");
         await("!document.querySelector('.settings-panel')");
@@ -140,6 +139,61 @@ public class StorageStartupTest {
             if (uri != null) context.getContentResolver().delete(uri, null, null);
             file.delete();
         }
+    }
+
+    @Test public void automaticThemeFollowsSystemAndManualSelectionOverridesIt() throws Exception {
+        String original = shellOutput("cmd uimode night").trim().replaceFirst("(?s).*Night mode: ", "").trim();
+        assertTrue("Unexpected system night mode: " + original, original.matches("yes|no|auto"));
+        try {
+            launch();
+            evaluate("document.querySelector('.settings-trigger').click(); true");
+            selectTheme("auto");
+            evaluate("document.querySelector('.settings-footer button').click(); true");
+            shellOutput("cmd uimode night no");
+            awaitBars(false);
+            shellOutput("cmd uimode night yes");
+            awaitBars(true);
+            reload();
+            assertEquals("\"auto\"", evaluate("localStorage.getItem('bay-theme')"));
+            awaitBars(true);
+            scenario.recreate();
+            awaitApp();
+            awaitBars(true);
+
+            evaluate("document.querySelector('.settings-trigger').click(); true");
+            selectTheme("light");
+            awaitBars(false);
+            shellOutput("cmd uimode night no");
+            awaitSystemTheme(false);
+            shellOutput("cmd uimode night yes");
+            awaitSystemTheme(true);
+            awaitBars(false);
+            selectTheme("auto");
+            awaitBars(true);
+            evaluate("document.querySelector('.settings-footer button').click(); true");
+            scenario.moveToState(androidx.lifecycle.Lifecycle.State.CREATED);
+            shellOutput("cmd uimode night no");
+            scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED);
+            awaitApp();
+            awaitBars(false);
+        } finally {
+            shellOutput("cmd uimode night " + original);
+        }
+    }
+
+    private void awaitSystemTheme(boolean dark) throws Exception {
+        long deadline = SystemClock.elapsedRealtime() + 10000;
+        while (SystemClock.elapsedRealtime() < deadline) {
+            if (pluginCall("TravelDevice", "getSystemTheme", new JSONObject()).getBoolean("dark") == dark) return;
+            SystemClock.sleep(100);
+        }
+        fail("System night mode did not change");
+    }
+
+    private void selectTheme(String mode) throws Exception {
+        await("!!document.querySelector('[data-theme-mode=\"" + mode + "\"]')");
+        evaluate("document.querySelector('[data-theme-mode=\"" + mode + "\"]').click(); true");
+        await("document.documentElement.dataset.themePreference === '" + mode + "'");
     }
 
     private void awaitBars(boolean dark) throws Exception {

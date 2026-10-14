@@ -163,10 +163,7 @@ export default function SettingsPanel({
               <Palette size={18} />
               {en ? "Appearance & language" : "外观与语言"}
             </h3>
-            <div className="row between">
-              <span>{en ? "Light / dark mode" : "浅色 / 深色模式"}</span>
-              <ThemeToggle lang={lang} />
-            </div>
+            <ThemeToggle lang={lang} />
             <label className="label">
               {en ? "Language" : "语言"}
               <select

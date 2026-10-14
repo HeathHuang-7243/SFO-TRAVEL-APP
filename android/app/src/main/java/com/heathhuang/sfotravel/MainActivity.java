@@ -18,17 +18,30 @@ public class MainActivity extends BridgeActivity {
     @Override public void onResume() {
         super.onResume();
         applySystemTheme();
+        publishSystemTheme();
     }
 
     @Override public void onConfigurationChanged(Configuration configuration) {
         super.onConfigurationChanged(configuration);
         applySystemTheme();
+        publishSystemTheme();
+    }
+
+    boolean isSystemDark() {
+        return (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+    }
+
+    private void publishSystemTheme() {
+        if (getBridge() == null || getBridge().getPlugin("TravelDevice") == null) return;
+        ((TravelDevicePlugin) getBridge().getPlugin("TravelDevice").getInstance()).publishSystemTheme();
     }
 
     @SuppressWarnings("deprecation")
     void applySystemTheme() {
-        boolean systemDark = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
-        boolean dark = getSharedPreferences("appearance", 0).getBoolean("dark", systemDark);
+        android.content.SharedPreferences preferences = getSharedPreferences("appearance", 0);
+        String mode = preferences.getString("mode", null);
+        boolean dark = mode == null ? preferences.getBoolean("dark", isSystemDark())
+            : "auto".equals(mode) ? isSystemDark() : "dark".equals(mode);
         int color = Color.parseColor(dark ? "#152019" : "#fbfcf9");
         View decor = getWindow().getDecorView();
         WindowCompat.getInsetsController(getWindow(), decor).setAppearanceLightStatusBars(!dark);

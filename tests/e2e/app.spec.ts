@@ -75,7 +75,7 @@ test("catalogue favorites, language, theme and mobile layout persist", async ({
   await page.getByRole("button", { name: "只看收藏" }).click();
   await expect(page.locator(".session-card")).toHaveCount(1);
   await page.getByRole("button", { name: "设置中心", exact: true }).click();
-  await page.getByRole("button", { name: "切换到深色模式" }).click();
+  await page.getByRole("radio", { name: "深色", exact: true }).click();
   await page
     .getByRole("combobox", { name: "语言", exact: true })
     .selectOption("en");
@@ -112,7 +112,7 @@ test("settings replace the breadcrumb and persist gallery choice and clock citie
   await page.getByRole("button", { name: "设置中心", exact: true }).click();
   await expect(settings.getByRole("switch")).toBeChecked();
   await settings.getByRole("switch").uncheck();
-  await settings.getByRole("button", { name: "切换到深色模式" }).click();
+  await settings.getByRole("radio", { name: "深色", exact: true }).click();
   await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute(
     "content",
     "#152019",
@@ -124,7 +124,7 @@ test("settings replace the breadcrumb and persist gallery choice and clock citie
     path: "test-results/settings-dark.png",
     animations: "disabled",
   });
-  await settings.getByRole("button", { name: "切换到浅色模式" }).click();
+  await settings.getByRole("radio", { name: "浅色", exact: true }).click();
   await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute(
     "content",
     "#fbfcf9",
@@ -150,4 +150,43 @@ test("settings replace the breadcrumb and persist gallery choice and clock citie
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
+});
+
+test("automatic theme follows system changes and manual choices override it", async ({
+  page,
+}) => {
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.getByRole("button", { name: "设置中心", exact: true }).click();
+  const auto = page.getByRole("radio", { name: "自动", exact: true });
+  await expect(auto).toBeChecked();
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(auto).toBeChecked();
+  await page.getByRole("radio", { name: "浅色", exact: true }).click();
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await page.getByRole("button", { name: "设置中心", exact: true }).click();
+  await auto.click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.screenshot({
+    path: "test-results/automatic-theme-dark.png",
+    animations: "disabled",
+  });
+  await page.getByRole("button", { name: "确认", exact: true }).click();
+  await page.emulateMedia({ colorScheme: "light" });
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute(
+    "content",
+    "#fbfcf9",
+  );
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute(
+    "data-theme-preference",
+    "auto",
+  );
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 });

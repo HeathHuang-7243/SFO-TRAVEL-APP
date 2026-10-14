@@ -192,9 +192,28 @@ html[data-theme="dark"] .app .app-tabs {
 .settings-section .fineprint {
   margin: 0;
 }
-.settings-section .theme-switch {
-  min-width: 44px;
+.theme-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.theme-options button {
+  border: 0;
+  background: transparent;
   min-height: 44px;
+  border-radius: 10px;
+  color: var(--muted);
+}
+.theme-options button[aria-checked="true"] {
+  color: var(--green);
+  background: var(--sage);
+  font-weight: 700;
+}
+.settings-section .theme-help {
+  margin-top: 10px;
 }
 .gallery-notice {
   margin: 0 0 20px;

@@ -16,14 +16,28 @@ import com.getcapacitor.annotation.PermissionCallback;
 })
 public class TravelDevicePlugin extends Plugin {
     @PluginMethod public void setTheme(PluginCall call) {
-        Boolean dark = call.getBoolean("dark");
-        if (dark == null) { call.reject("Missing theme"); return; }
+        String mode = call.getString("mode");
+        if (!"light".equals(mode) && !"dark".equals(mode) && !"auto".equals(mode)) { call.reject("Invalid theme mode"); return; }
         getActivity().runOnUiThread(() -> {
             MainActivity activity = (MainActivity) getActivity();
-            activity.getSharedPreferences("appearance", 0).edit().putBoolean("dark", dark).apply();
+            activity.getSharedPreferences("appearance", 0).edit().putString("mode", mode).apply();
             activity.applySystemTheme();
             call.resolve();
         });
+    }
+
+    @PluginMethod public void getSystemTheme(PluginCall call) {
+        getActivity().runOnUiThread(() -> call.resolve(systemTheme()));
+    }
+
+    private JSObject systemTheme() {
+        JSObject result = new JSObject();
+        result.put("dark", ((MainActivity) getActivity()).isSystemDark());
+        return result;
+    }
+
+    void publishSystemTheme() {
+        notifyListeners("systemThemeChanged", systemTheme(), true);
     }
 
     @PluginMethod public void saveReceiptToGallery(PluginCall call) {
