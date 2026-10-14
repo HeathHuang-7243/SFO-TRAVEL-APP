@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { getRepository } from "./storage/repository";
 import { openExternal } from "./services/device";
 import TravelApp from "./components/TravelApp";
+import { startThemeSync } from "./services/theme";
 import "./globals.css";
 import "./themes.css";
 import "./mobile.css";
@@ -68,6 +69,7 @@ function Boot() {
     <div className="startup">正在打开本地账本… / Opening local data…</div>
   );
 }
+startThemeSync();
 createRoot(document.getElementById("root")!).render(
   <ErrorBoundary>
     <Boot />

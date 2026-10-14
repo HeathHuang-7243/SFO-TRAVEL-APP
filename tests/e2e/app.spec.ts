@@ -32,6 +32,7 @@ test("offline expenses and receipts survive restart; encrypted restore is idempo
   await page.reload();
   await page.getByRole("button", { name: /旅行账本/ }).click();
   await expect(page.locator(".expense-row")).toContainText("离线午餐测试");
+  await page.getByRole("button", { name: "设置中心", exact: true }).click();
   await page.getByRole("button", { name: "本地备份", exact: true }).click();
   const backup = page.getByRole("dialog", { name: "本地数据与备份" });
   await backup.getByLabel("备份密码（至少 8 位）").fill("test-password");
@@ -47,6 +48,7 @@ test("offline expenses and receipts survive restart; encrypted restore is idempo
   page.once("dialog", (d) => d.accept());
   await page.getByRole("button", { name: "删除账目" }).click();
   await expect(page.locator(".expense-row")).toHaveCount(0);
+  await page.getByRole("button", { name: "设置中心", exact: true }).click();
   await page.getByRole("button", { name: "本地备份", exact: true }).click();
   await backup.getByLabel("备份密码（至少 8 位）").fill("test-password");
   await backup.getByLabel("选择本应用的备份文件").setInputFiles(path!);
@@ -72,8 +74,12 @@ test("catalogue favorites, language, theme and mobile layout persist", async ({
   await page.getByRole("button", { name: /Ignite 会议/ }).click();
   await page.getByRole("button", { name: "只看收藏" }).click();
   await expect(page.locator(".session-card")).toHaveCount(1);
+  await page.getByRole("button", { name: "设置中心", exact: true }).click();
   await page.getByRole("button", { name: "切换到深色模式" }).click();
-  await page.getByRole("link", { name: "Switch to English" }).click();
+  await page
+    .getByRole("combobox", { name: "语言", exact: true })
+    .selectOption("en");
+  await page.getByRole("button", { name: "Close settings" }).click();
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
@@ -86,4 +92,62 @@ test("catalogue favorites, language, theme and mobile layout persist", async ({
     path: "test-results/android-home-dark.png",
     fullPage: true,
   });
+});
+
+test("settings replace the breadcrumb and persist gallery choice and clock cities", async ({
+  page,
+}) => {
+  await page.getByRole("button", { name: "设置中心", exact: true }).click();
+  const settings = page.getByRole("dialog", { name: "设置中心" });
+  await expect(settings.getByRole("switch")).not.toBeChecked();
+  await settings.getByRole("switch").check();
+  await settings.getByLabel("时钟城市 2").selectOption("London");
+  await settings.getByLabel("时钟城市 3").selectOption("Tokyo");
+  await page.keyboard.press("Escape");
+  await expect(settings).not.toBeVisible();
+  await expect(page.locator(".clocks")).toContainText("伦敦");
+  await expect(page.locator(".clocks")).toContainText("东京");
+  await page.reload();
+  await expect(page.locator(".clocks")).toContainText("伦敦");
+  await page.getByRole("button", { name: "设置中心", exact: true }).click();
+  await expect(settings.getByRole("switch")).toBeChecked();
+  await settings.getByRole("switch").uncheck();
+  await settings.getByRole("button", { name: "切换到深色模式" }).click();
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute(
+    "content",
+    "#152019",
+  );
+  await settings.evaluate((element) => {
+    element.scrollTop = 0;
+  });
+  await page.screenshot({
+    path: "test-results/settings-dark.png",
+    animations: "disabled",
+  });
+  await settings.getByRole("button", { name: "切换到浅色模式" }).click();
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute(
+    "content",
+    "#fbfcf9",
+  );
+  await settings.evaluate((element) => {
+    element.scrollTop = 0;
+  });
+  await page.screenshot({
+    path: "test-results/settings-light.png",
+    animations: "disabled",
+  });
+  await page.getByRole("button", { name: "关闭设置" }).click();
+  await expect(page.locator(".breadcrumb")).toHaveCount(0);
+  await expect(
+    page.getByRole("navigation", { name: "主要功能" }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: "test-results/mobile-home-settings.png",
+    fullPage: true,
+  });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
 });

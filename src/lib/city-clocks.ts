@@ -21,6 +21,121 @@ export const clockCities = [
     longitude: 121.4737,
   },
 ];
+export const availableCities = [
+  ...clockCities,
+  {
+    zone: "America/Los_Angeles",
+    zh: "旧金山",
+    en: "San Francisco",
+    latitude: 37.7749,
+    longitude: -122.4194,
+  },
+  {
+    zone: "Asia/Shanghai",
+    zh: "北京",
+    en: "Beijing",
+    latitude: 39.9042,
+    longitude: 116.4074,
+  },
+  {
+    zone: "Asia/Shanghai",
+    zh: "广州",
+    en: "Guangzhou",
+    latitude: 23.1291,
+    longitude: 113.2644,
+  },
+  {
+    zone: "Asia/Shanghai",
+    zh: "深圳",
+    en: "Shenzhen",
+    latitude: 22.5431,
+    longitude: 114.0579,
+  },
+  {
+    zone: "Asia/Hong_Kong",
+    zh: "香港",
+    en: "Hong Kong",
+    latitude: 22.3193,
+    longitude: 114.1694,
+  },
+  {
+    zone: "Asia/Tokyo",
+    zh: "东京",
+    en: "Tokyo",
+    latitude: 35.6762,
+    longitude: 139.6503,
+  },
+  {
+    zone: "Asia/Seoul",
+    zh: "首尔",
+    en: "Seoul",
+    latitude: 37.5665,
+    longitude: 126.978,
+  },
+  {
+    zone: "Asia/Singapore",
+    zh: "新加坡",
+    en: "Singapore",
+    latitude: 1.3521,
+    longitude: 103.8198,
+  },
+  {
+    zone: "Asia/Dubai",
+    zh: "迪拜",
+    en: "Dubai",
+    latitude: 25.2048,
+    longitude: 55.2708,
+  },
+  {
+    zone: "Asia/Kolkata",
+    zh: "孟买",
+    en: "Mumbai",
+    latitude: 19.076,
+    longitude: 72.8777,
+  },
+  {
+    zone: "Europe/London",
+    zh: "伦敦",
+    en: "London",
+    latitude: 51.5074,
+    longitude: -0.1278,
+  },
+  {
+    zone: "Europe/Paris",
+    zh: "巴黎",
+    en: "Paris",
+    latitude: 48.8566,
+    longitude: 2.3522,
+  },
+  {
+    zone: "America/New_York",
+    zh: "纽约",
+    en: "New York",
+    latitude: 40.7128,
+    longitude: -74.006,
+  },
+  {
+    zone: "America/Toronto",
+    zh: "多伦多",
+    en: "Toronto",
+    latitude: 43.6532,
+    longitude: -79.3832,
+  },
+  {
+    zone: "Australia/Sydney",
+    zh: "悉尼",
+    en: "Sydney",
+    latitude: -33.8688,
+    longitude: 151.2093,
+  },
+  {
+    zone: "Pacific/Auckland",
+    zh: "奥克兰",
+    en: "Auckland",
+    latitude: -36.8509,
+    longitude: 174.7645,
+  },
+];
 const DAY = 86400000;
 export function calendarDay(now: Date, zone: string) {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -33,9 +148,13 @@ export function calendarDay(now: Date, zone: string) {
     Number(parts.find((p) => p.type === name)!.value);
   return Date.UTC(value("year"), value("month") - 1, value("day"));
 }
-export function dateDifference(now: Date, zone: string) {
+export function dateDifference(
+  now: Date,
+  zone: string,
+  referenceZone = "Europe/Berlin",
+) {
   return Math.round(
-    (calendarDay(now, zone) - calendarDay(now, "Europe/Berlin")) / DAY,
+    (calendarDay(now, zone) - calendarDay(now, referenceZone)) / DAY,
   );
 }
 // NOAA sunrise/sunset approximation, including refraction (90.833° zenith).
@@ -76,12 +195,16 @@ export function sunTimes(now: Date, city: (typeof clockCities)[number]) {
     sunset: new Date(midnight + (720 - 4 * (city.longitude - ha) - eq) * 60000),
   };
 }
-export function cityClock(now: Date, city: (typeof clockCities)[number]) {
+export function cityClock(
+  now: Date,
+  city: (typeof clockCities)[number],
+  referenceZone = "Europe/Berlin",
+) {
   const { sunrise, sunset } = sunTimes(now, city);
   return {
     sunrise,
     sunset,
     daytime: now >= sunrise && now < sunset,
-    difference: dateDifference(now, city.zone),
+    difference: dateDifference(now, city.zone, referenceZone),
   };
 }

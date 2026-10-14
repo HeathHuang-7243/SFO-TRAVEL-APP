@@ -3,45 +3,22 @@ import { useEffect, useState } from "react";
 import { Moon, Sun } from "lucide-react";
 import type { Language } from "../lib/i18n";
 
-type Theme = "light" | "dark";
-const key = "bay-theme";
+import { changeTheme, type Theme } from "../services/theme";
 export default function ThemeToggle({ lang }: { lang: Language }) {
   const [theme, setTheme] = useState<Theme>("light");
   useEffect(() => {
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-    const sync = () => {
-      let saved: string | null = null;
-      try {
-        saved = localStorage.getItem(key);
-      } catch {}
-      const next: Theme =
-        saved === "light" || saved === "dark"
-          ? saved
-          : media.matches
-            ? "dark"
-            : "light";
-      document.documentElement.dataset.theme = next;
-      setTheme(next);
-    };
-    const storage = (event: StorageEvent) => {
-      if (event.key === key || event.key === null) sync();
-    };
+    const sync = () =>
+      setTheme(
+        document.documentElement.dataset.theme === "dark" ? "dark" : "light",
+      );
     sync();
-    media.addEventListener("change", sync);
-    window.addEventListener("storage", storage);
-    return () => {
-      media.removeEventListener("change", sync);
-      window.removeEventListener("storage", storage);
-    };
+    window.addEventListener("sfo-theme", sync);
+    return () => window.removeEventListener("sfo-theme", sync);
   }, []);
   function toggle() {
-    const next: Theme =
-      document.documentElement.dataset.theme === "dark" ? "light" : "dark";
-    document.documentElement.dataset.theme = next;
-    setTheme(next);
-    try {
-      localStorage.setItem(key, next);
-    } catch {}
+    changeTheme(
+      document.documentElement.dataset.theme === "dark" ? "light" : "dark",
+    );
   }
   const label =
     theme === "dark"

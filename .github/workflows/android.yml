@@ -59,7 +59,10 @@ jobs:
           disk-size: 2048M
           emulator-boot-timeout: 300
           disable-animations: true
-          script: cd android && ./gradlew :app:connectedDebugAndroidTest --no-daemon
+          script: |
+            ./android/gradlew -p android :app:connectedDebugAndroidTest --no-daemon
+            adb pull /sdcard/Download/test-status-dark.png android/app/build/reports/androidTests/status-dark.png
+            adb pull /sdcard/Download/test-status-light.png android/app/build/reports/androidTests/status-light.png
       - uses: actions/upload-artifact@v4
         if: always()
         with:

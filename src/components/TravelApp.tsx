@@ -28,7 +28,7 @@ import {
   Ticket,
   Receipt,
   Check,
-  Globe,
+  Settings,
   ImagePlus,
 } from "lucide-react";
 import { attractions } from "../lib/attractions";
@@ -42,10 +42,17 @@ import { App as NativeApp } from "@capacitor/app";
 import { translate, type Language } from "../lib/i18n";
 import RateHistory from "../components/RateHistory";
 import PlacePhoto from "../components/PlacePhoto";
-import ThemeToggle from "../components/ThemeToggle";
+import SettingsPanel from "./SettingsPanel";
+import {
+  readPreferences,
+  writePreferences,
+  type Preferences,
+} from "../services/preferences";
+import { saveReceiptToGallery } from "../services/native-device";
+import { recordExpense } from "../services/save-expense";
 import { savedExpenseValue } from "../lib/expense-rates";
 import { heroMessages, homeGreeting, nextHeroIndex } from "../lib/home-copy";
-import { clockCities, cityClock } from "../lib/city-clocks";
+import { availableCities, cityClock } from "../lib/city-clocks";
 const deviceDate = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const dateLocal = (d = new Date()) =>
@@ -90,7 +97,40 @@ export default function TravelApp() {
     } catch {}
     return navigator.language.startsWith("zh") ? "zh" : "en";
   });
-  const localePath = "/";
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [preferences, setPreferences] = useState(readPreferences);
+  const [galleryFailure, setGalleryFailure] = useState<{
+    path: string;
+    message: string;
+  } | null>(null);
+  const [galleryBusy, setGalleryBusy] = useState(false);
+  const selectedCities = preferences.cities.map(
+    (name) => availableCities.find((city) => city.en === name)!,
+  );
+  const referenceCity = selectedCities[1];
+  function changePreferences(next: Preferences) {
+    writePreferences(next);
+    setPreferences(next);
+  }
+  async function copyReceiptToGallery(path: string) {
+    setGalleryBusy(true);
+    try {
+      await saveReceiptToGallery(path);
+      setGalleryFailure(null);
+      setToast(
+        lang === "en"
+          ? "Expense and gallery photo saved"
+          : "账目及相册照片已保存",
+      );
+    } catch (error) {
+      setGalleryFailure({
+        path,
+        message: String(error instanceof Error ? error.message : error),
+      });
+    } finally {
+      setGalleryBusy(false);
+    }
+  }
   const [backupOpen, setBackupOpen] = useState(false),
     [online, setOnline] = useState(navigator.onLine);
   useEffect(() => {
@@ -383,11 +423,23 @@ export default function TravelApp() {
         }),
       );
       if (photo) f.set("photo", photo);
-      await api("/api/expenses", { method: "POST", body: f });
+      const result = await recordExpense(f, preferences.saveToGallery);
       setModal(false);
       setPhoto(null);
       await refresh("expenses");
-      setToast("账目已保存");
+      setToast(
+        result.gallerySaved
+          ? lang === "en"
+            ? "Expense and gallery photo saved"
+            : "账目及相册照片已保存"
+          : "账目已保存",
+      );
+      if (result.galleryError && result.expense.photo_key) {
+        setGalleryFailure({
+          path: result.expense.photo_key,
+          message: result.galleryError,
+        });
+      }
     } catch (e) {
       setToast((e as Error).message);
     } finally {
@@ -512,6 +564,10 @@ export default function TravelApp() {
   }
   useEffect(() => {
     function closeOverlay() {
+      if (settingsOpen) {
+        setSettingsOpen(false);
+        return;
+      }
       if (document.querySelector(".receipt-view")) {
         window.dispatchEvent(new Event("sfo-close-overlay"));
         return;
@@ -548,7 +604,7 @@ export default function TravelApp() {
       window.removeEventListener("keydown", escape);
       void listener?.then((h) => h.remove());
     };
-  }, [backupOpen, modal, saving, place, session, tab]);
+  }, [settingsOpen, backupOpen, modal, saving, place, session, tab]);
   const nav = [
     { id: "home", name: "出差概览", en: "Overview", icon: LayoutDashboard },
     {
@@ -807,59 +863,22 @@ export default function TravelApp() {
   }
   return (
     <div className="app">
-      <aside className="sidebar">
-        <a
-          className="brand"
-          href={localePath}
-          onClick={(e) => {
-            e.preventDefault();
-            navigate("home");
-          }}
-        >
-          <img src="/favicon.svg" alt="" />
-          <div>
-            {t("湾区随行")}
-            <small>THE SAN FRANCISCO EDIT</small>
-          </div>
-        </a>
-        <div className="workspace-label">YOUR TRAVEL COMPANION</div>
-        <nav>
-          {nav.map((n) => (
-            <button
-              key={n.id}
-              className={tab === n.id ? "active" : ""}
-              onClick={() => navigate(n.id)}
-            >
-              <n.icon size={19} />
-              <span>
-                {t(n.name)}
-                {lang === "zh" && <small>{n.en}</small>}
-              </span>
-              {tab === n.id && <ChevronRight size={15} />}
-            </button>
-          ))}
-        </nav>
-        <div className="sidebar-bottom">
-          <div className="private">
-            <ShieldCheck size={16} />
-            {t("个人出差空间")}
-          </div>
-          <p>
-            {t("从会议现场，到海湾日落。")}
-            <br />
-            {t("让旅途少一点忙乱。")}
-          </p>
-          <div className="profile">
-            <span>H</span>
-            <div>
-              {lang === "en" ? "On this device" : "本机用户"}
-              <small>
-                {lang === "en" ? "Stored on this device" : "仅保存在本机"}
-              </small>
-            </div>
-          </div>
-        </div>
-      </aside>
+      <nav
+        className="app-tabs"
+        aria-label={lang === "en" ? "Main tabs" : "主要功能"}
+      >
+        {nav.map((n) => (
+          <button
+            key={n.id}
+            className={tab === n.id ? "active" : ""}
+            aria-current={tab === n.id ? "page" : undefined}
+            onClick={() => navigate(n.id)}
+          >
+            <n.icon size={20} />
+            <span>{t(n.name)}</span>
+          </button>
+        ))}
+      </nav>
       <div className="main">
         {!online && (
           <div className="offline-banner" role="status">
@@ -869,14 +888,24 @@ export default function TravelApp() {
           </div>
         )}
         <header className="topbar">
-          <div className="breadcrumb">
-            {t("我的出差空间 ")}
-            <ChevronRight size={12} />
-            <b>{t(nav.find((n) => n.id === tab)?.name || "")}</b>
+          <button
+            className="settings-trigger"
+            aria-label={lang === "en" ? "Settings" : "设置中心"}
+            aria-haspopup="dialog"
+            onClick={() => setSettingsOpen(true)}
+          >
+            <Settings size={22} />
+            <span>{lang === "en" ? "Settings" : "设置"}</span>
+          </button>
+          <div className="app-heading">
+            <strong>{t("湾区随行")}</strong>
+            <small>{t(nav.find((n) => n.id === tab)?.name || "")}</small>
           </div>
           <div className="clocks">
-            {clockCities.map((city) => {
-              const state = now ? cityClock(now, city) : null;
+            {selectedCities.map((city, index) => {
+              const state = now
+                ? cityClock(now, city, referenceCity.zone)
+                : null;
               const delta = state?.difference || 0;
               const label = city[lang];
               const solarTime = (d: Date) =>
@@ -891,7 +920,7 @@ export default function TravelApp() {
                 : "";
               return (
                 <span
-                  key={city.zone}
+                  key={index}
                   className={
                     "city-clock " +
                     (state
@@ -910,16 +939,16 @@ export default function TravelApp() {
                         className="date-offset"
                         title={
                           lang === "en"
-                            ? "Date relative to Berlin"
-                            : "相对柏林日期"
+                            ? `Date relative to ${referenceCity.en}`
+                            : `相对${referenceCity.zh}日期`
                         }
                         aria-label={
                           lang === "en"
-                            ? `${Math.abs(delta)} day ${delta > 0 ? "ahead of" : "behind"} Berlin`
-                            : `比柏林${delta > 0 ? "快" : "慢"}一天`
+                            ? `${Math.abs(delta)} day ${delta > 0 ? "ahead of" : "behind"} ${referenceCity.en}`
+                            : `比${referenceCity.zh}${delta > 0 ? "快" : "慢"}${Math.abs(delta)}天`
                         }
                       >
-                        {delta > 0 ? "+1" : "-1"}
+                        {delta > 0 ? `+${delta}` : delta}
                       </sup>
                     )}
                   </b>
@@ -927,30 +956,34 @@ export default function TravelApp() {
               );
             })}
           </div>
-          <div className="header-actions">
-            <a
-              className="language-switch"
-              href="#language"
-              onClick={(e) => {
-                e.preventDefault();
-                setLang(lang === "zh" ? "en" : "zh");
-              }}
-              hrefLang={lang === "zh" ? "en-US" : "zh-CN"}
-              aria-label={lang === "zh" ? "Switch to English" : t("切换为中文")}
-            >
-              <Globe size={14} />
-              {lang === "zh" ? "English" : t("中文")}
-            </a>
-            <ThemeToggle lang={lang} />
-            <button
-              className="secondary backup-trigger"
-              onClick={() => setBackupOpen(true)}
-            >
-              {lang === "en" ? "Backup" : "本地备份"}
-            </button>
-          </div>
         </header>
         <main className={tab === "home" ? "home-page" : undefined}>
+          {galleryFailure && (
+            <div className="notice gallery-notice" role="alert">
+              <strong>
+                {lang === "en"
+                  ? "Expense saved; gallery copy failed"
+                  : "账目已保存，相册副本未保存"}
+              </strong>
+              <p>{galleryFailure.message}</p>
+              <button
+                className="secondary"
+                disabled={galleryBusy}
+                onClick={() => copyReceiptToGallery(galleryFailure.path)}
+              >
+                {lang === "en" ? "Retry gallery copy" : "重试保存到相册"}
+              </button>
+              <button
+                className="iconbutton"
+                aria-label={
+                  lang === "en" ? "Dismiss gallery notice" : "关闭相册提示"
+                }
+                onClick={() => setGalleryFailure(null)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+          )}
           <div className="page-content">
             <div className="page-heading">
               <div>
@@ -2277,6 +2310,19 @@ export default function TravelApp() {
             </p>
           </section>
         </div>
+      )}
+      {settingsOpen && (
+        <SettingsPanel
+          lang={lang}
+          preferences={preferences}
+          onChange={changePreferences}
+          onLanguage={setLang}
+          onClose={() => setSettingsOpen(false)}
+          onBackup={() => {
+            setSettingsOpen(false);
+            setBackupOpen(true);
+          }}
+        />
       )}
       {backupOpen && (
         <BackupPanel

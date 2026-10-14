@@ -5,6 +5,20 @@ import static org.junit.Assert.*;
 import android.content.Context;
 import android.database.sqlite.SQLiteDatabase;
 import android.os.SystemClock;
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
+import android.net.Uri;
+import android.provider.MediaStore;
+import android.database.Cursor;
+import androidx.core.view.WindowCompat;
+import androidx.test.platform.app.InstrumentationRegistry;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -68,6 +82,99 @@ public class StorageStartupTest {
         awaitApp();
     }
 
+    @Test public void themeUpdatesStatusIconsAndInsetBackgroundAcrossReloadAndRecreation() throws Exception {
+        launch();
+        evaluate("document.querySelector('.settings-trigger').click(); true");
+        await("!!document.querySelector('.settings-panel')");
+        evaluate("if(document.documentElement.dataset.theme !== 'dark') document.querySelector('.theme-switch').click(); true");
+        awaitBars(true);
+        evaluate("document.querySelector('[aria-label=\"关闭设置\"], [aria-label=\"Close settings\"]').click(); true");
+        await("!document.querySelector('.settings-panel')");
+        screenshot("test-status-dark.png");
+        reload();
+        awaitBars(true);
+        evaluate("document.querySelector('.settings-trigger').click(); true");
+        await("!!document.querySelector('.theme-switch')");
+        evaluate("document.querySelector('.theme-switch').click(); true");
+        awaitBars(false);
+        evaluate("document.querySelector('[aria-label=\"关闭设置\"], [aria-label=\"Close settings\"]').click(); true");
+        await("!document.querySelector('.settings-panel')");
+        screenshot("test-status-light.png");
+        scenario.recreate();
+        awaitApp();
+        awaitBars(false);
+    }
+
+    @Test public void galleryCopiesAnOwnedReceiptWithoutLibraryPermissionAndRetryDoesNotDuplicate() throws Exception {
+        launch();
+        Context context = ApplicationProvider.getApplicationContext();
+        assertEquals(PackageManager.PERMISSION_DENIED, context.checkSelfPermission(Manifest.permission.READ_MEDIA_IMAGES));
+        assertEquals(PackageManager.PERMISSION_DENIED, context.checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE));
+        File file = new File(context.getFilesDir(), "receipts/native-gallery-test.jpg");
+        assertTrue(file.getParentFile().isDirectory() || file.getParentFile().mkdirs());
+        Bitmap bitmap = Bitmap.createBitmap(8, 8, Bitmap.Config.ARGB_8888);
+        bitmap.eraseColor(Color.GREEN);
+        try (FileOutputStream output = new FileOutputStream(file)) { assertTrue(bitmap.compress(Bitmap.CompressFormat.JPEG, 85, output)); }
+        bitmap.recycle();
+        Uri uri = null;
+        try {
+            JSONObject options = new JSONObject().put("path", "receipts/native-gallery-test.jpg");
+            uri = Uri.parse(pluginCall("TravelDevice", "saveReceiptToGallery", options).getString("uri"));
+            assertEquals("content", uri.getScheme());
+            try (Cursor cursor = context.getContentResolver().query(uri, new String[]{MediaStore.Images.Media.IS_PENDING, MediaStore.Images.Media.RELATIVE_PATH}, null, null, null)) {
+                assertNotNull(cursor);
+                assertTrue(cursor.moveToFirst());
+                assertEquals(0, cursor.getInt(0));
+                assertEquals("Pictures/SFO Travel/", cursor.getString(1));
+            }
+            try (InputStream input = context.getContentResolver().openInputStream(uri)) {
+                Bitmap saved = BitmapFactory.decodeStream(input);
+                assertNotNull(saved);
+                assertEquals(8, saved.getWidth());
+                saved.recycle();
+            }
+            assertEquals(uri.toString(), pluginCall("TravelDevice", "saveReceiptToGallery", options).getString("uri"));
+            assertTrue(file.isFile());
+            assertThrows(java.io.IOException.class, () -> ReceiptGallery.receipt(context, "../secret.jpg"));
+        } finally {
+            if (uri != null) context.getContentResolver().delete(uri, null, null);
+            file.delete();
+        }
+    }
+
+    private void awaitBars(boolean dark) throws Exception {
+        await("document.documentElement.dataset.theme === '" + (dark ? "dark" : "light") + "'");
+        long deadline = SystemClock.elapsedRealtime() + 5000;
+        AtomicReference<Boolean> correct = new AtomicReference<>(false);
+        do {
+            scenario.onActivity(activity -> {
+                android.view.View decor = activity.getWindow().getDecorView();
+                androidx.core.view.WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(activity.getWindow(), decor);
+                android.view.View background = (android.view.View) activity.getBridge().getWebView().getParent();
+                correct.set(controller.isAppearanceLightStatusBars() == !dark && controller.isAppearanceLightNavigationBars() == !dark
+                    && background.getBackground() instanceof ColorDrawable
+                    && ((ColorDrawable) background.getBackground()).getColor() == Color.parseColor(dark ? "#152019" : "#fbfcf9"));
+            });
+            if (correct.get()) return;
+            SystemClock.sleep(100);
+        } while (SystemClock.elapsedRealtime() < deadline);
+        fail("System bar icon contrast or inset background does not match " + (dark ? "dark" : "light") + " mode");
+    }
+
+    private void screenshot(String name) throws Exception {
+        // Test-runner shell capture includes real system bars and survives APK teardown.
+        assertTrue(name.matches("test-status-(dark|light)\\.png"));
+        android.os.ParcelFileDescriptor descriptor = InstrumentationRegistry.getInstrumentation().getUiAutomation()
+            .executeShellCommand("screencap -p /sdcard/Download/" + name + " && echo saved");
+        try (InputStream input = new android.os.ParcelFileDescriptor.AutoCloseInputStream(descriptor)) {
+            java.io.ByteArrayOutputStream result = new java.io.ByteArrayOutputStream();
+            byte[] buffer = new byte[256];
+            int count;
+            while ((count = input.read(buffer)) != -1) result.write(buffer, 0, count);
+            assertTrue(result.toString(), result.toString().contains("saved"));
+        }
+    }
+
     private void reload() throws Exception {
         // Mark this JS context: readiness must come from a NEW page, not the old DOM.
         evaluate("window.__beforeReload = true; location.reload(); true");
@@ -88,7 +195,11 @@ public class StorageStartupTest {
 
     private JSONObject nativeCall(String method, JSONObject options) throws Exception {
         options.put("database", "sfo_travel").put("readonly", false);
-        evaluate("window.__storageResult = null; Capacitor.nativePromise('CapacitorSQLite', "
+        return pluginCall("CapacitorSQLite", method, options);
+    }
+
+    private JSONObject pluginCall(String plugin, String method, JSONObject options) throws Exception {
+        evaluate("window.__storageResult = null; Capacitor.nativePromise(" + JSONObject.quote(plugin) + ", "
             + JSONObject.quote(method) + ", " + options + ").then(value => { window.__storageResult = {value}; })"
             + ".catch(error => { window.__storageResult = {error: String(error)}; }); true");
         await("window.__storageResult !== null");
