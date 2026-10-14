@@ -43,6 +43,8 @@ import { translate, type Language } from "../lib/i18n";
 import RateHistory from "../components/RateHistory";
 import PlacePhoto from "../components/PlacePhoto";
 import SettingsPanel from "./SettingsPanel";
+import WelcomePanel from "./WelcomePanel";
+import { shouldShowWelcome } from "../services/welcome";
 import {
   readPreferences,
   writePreferences,
@@ -98,6 +100,7 @@ export default function TravelApp() {
     return navigator.language.startsWith("zh") ? "zh" : "en";
   });
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [welcomeOpen, setWelcomeOpen] = useState(shouldShowWelcome);
   const [preferences, setPreferences] = useState(readPreferences);
   const [galleryFailure, setGalleryFailure] = useState<{
     path: string;
@@ -564,6 +567,10 @@ export default function TravelApp() {
   }
   useEffect(() => {
     function closeOverlay() {
+      if (welcomeOpen) {
+        setWelcomeOpen(false);
+        return;
+      }
       if (settingsOpen) {
         setSettingsOpen(false);
         return;
@@ -604,7 +611,16 @@ export default function TravelApp() {
       window.removeEventListener("keydown", escape);
       void listener?.then((h) => h.remove());
     };
-  }, [settingsOpen, backupOpen, modal, saving, place, session, tab]);
+  }, [
+    welcomeOpen,
+    settingsOpen,
+    backupOpen,
+    modal,
+    saving,
+    place,
+    session,
+    tab,
+  ]);
   const nav = [
     { id: "home", name: "出差概览", en: "Overview", icon: LayoutDashboard },
     {
@@ -2323,11 +2339,18 @@ export default function TravelApp() {
           onChange={changePreferences}
           onLanguage={setLang}
           onClose={() => setSettingsOpen(false)}
+          onAbout={() => {
+            setSettingsOpen(false);
+            setWelcomeOpen(true);
+          }}
           onBackup={() => {
             setSettingsOpen(false);
             setBackupOpen(true);
           }}
         />
+      )}
+      {welcomeOpen && (
+        <WelcomePanel lang={lang} onClose={() => setWelcomeOpen(false)} />
       )}
       {backupOpen && (
         <BackupPanel

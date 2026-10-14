@@ -20,6 +20,7 @@ export default function SettingsPanel({
   onChange,
   onLanguage,
   onBackup,
+  onAbout,
   onClose,
 }: {
   lang: Language;
@@ -27,6 +28,7 @@ export default function SettingsPanel({
   onChange: (p: Preferences) => void;
   onLanguage: (lang: Language) => void;
   onBackup: () => void;
+  onAbout: () => void;
   onClose: () => void;
 }) {
   const panel = useRef<HTMLElement>(null);
@@ -217,6 +219,9 @@ export default function SettingsPanel({
                 : "需要 GitHub 账号。反馈会公开显示，请勿上传个人账目、凭证或备份文件。"}
             </p>
           </section>
+          <button className="secondary" onClick={onAbout}>
+            {en ? "About this app · Introduction" : "关于应用 · 使用说明"}
+          </button>
           {error && (
             <p role="alert" className="notice">
               {error}

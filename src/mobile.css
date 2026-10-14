@@ -138,6 +138,41 @@ html[data-theme="dark"] .app .app-tabs {
   min-height: 44px;
   justify-content: center;
 }
+.welcome-content {
+  display: grid;
+  gap: 14px;
+  font-size: 13px;
+  line-height: 1.8;
+}
+.welcome-content h3 {
+  margin: 6px 0 0;
+}
+.welcome-repository {
+  overflow-wrap: anywhere;
+}
+.welcome-repository span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.welcome-footer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+.welcome-choice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+  font-size: 13px;
+}
+.welcome-choice input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--green);
+}
 .settings-section {
   padding: 20px 0;
   border-bottom: 1px solid var(--line);

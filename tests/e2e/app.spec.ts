@@ -3,6 +3,9 @@ test.beforeEach(async ({ page }) => {
   // Make every public data request fail; bundled content and local writes must work.
   await page.route("https://**/*", (route) => route.abort());
   await page.goto("/");
+  const welcome = page.getByRole("dialog", { name: "欢迎使用「湾区随行」" });
+  await welcome.getByRole("checkbox", { name: "不再显示" }).check();
+  await welcome.getByRole("button", { name: "开始使用" }).click();
 });
 test("offline expenses and receipts survive restart; encrypted restore is idempotent", async ({
   page,
@@ -189,4 +192,51 @@ test("automatic theme follows system changes and manual choices override it", as
   );
   await page.emulateMedia({ colorScheme: "dark" });
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+});
+
+test("introduction repeats until opted out and can be reopened from settings", async ({
+  page,
+}) => {
+  await page.evaluate(() =>
+    localStorage.removeItem("sfo-welcome-dismissed:v1"),
+  );
+  await page.reload();
+  const welcome = page.getByRole("dialog", { name: "欢迎使用「湾区随行」" });
+  const choice = welcome.getByRole("checkbox", { name: "不再显示" });
+  const start = welcome.getByRole("button", { name: "开始使用" });
+  await expect(choice).not.toBeChecked();
+  await expect(welcome.getByRole("link")).toHaveAttribute(
+    "href",
+    "https://github.com/HeathHuang-7243/SFO-TRAVEL-APP",
+  );
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.emulateMedia({ colorScheme: "light" });
+  await expect(start).toBeInViewport();
+  await page.screenshot({ path: "test-results/welcome-small-light.png" });
+  await start.click();
+  await page.reload();
+  await expect(choice).not.toBeChecked();
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect(start).toBeInViewport();
+  await page.screenshot({ path: "test-results/welcome-small-dark.png" });
+  await choice.check();
+  await start.click();
+  await page.reload();
+  await expect(page.locator(".app main")).toBeVisible();
+  await expect(welcome).not.toBeVisible();
+  await page.getByRole("button", { name: "设置中心", exact: true }).click();
+  await expect(
+    page.getByRole("link", { name: "问题反馈 · GitHub Issues" }),
+  ).toHaveAttribute(
+    "href",
+    "https://github.com/HeathHuang-7243/SFO-TRAVEL-APP/issues/new/choose",
+  );
+  await page.getByRole("button", { name: "关于应用 · 使用说明" }).click();
+  await expect(choice).toBeChecked();
+  await choice.uncheck();
+  await start.click();
+  await page.reload();
+  await expect(choice).not.toBeChecked();
+  await page.keyboard.press("Escape");
+  await expect(welcome).not.toBeVisible();
 });

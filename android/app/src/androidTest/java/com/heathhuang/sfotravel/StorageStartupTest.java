@@ -248,6 +248,12 @@ public class StorageStartupTest {
         if (!"true".equals(evaluate("!!document.querySelector('.app main')"))) {
             fail("App failed to initialize: " + evaluate("document.body.textContent"));
         }
+        if ("true".equals(evaluate("!!document.querySelector('.welcome-panel')"))) {
+            evaluate("(() => { const choice = document.querySelector('.welcome-choice input'); if (!choice.checked) choice.click(); })(); true");
+            await("document.querySelector('.welcome-choice input').checked");
+            evaluate("document.querySelector('.welcome-start').click(); true");
+            await("!document.querySelector('.welcome-panel')");
+        }
     }
 
     private JSONArray query(String sql) throws Exception {
