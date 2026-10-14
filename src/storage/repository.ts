@@ -149,5 +149,10 @@ export function validateBackup(input: unknown): Backup {
 }
 let repository: Promise<Repository> | undefined;
 export function getRepository() {
-  return (repository ??= getDriver().then((db) => new Repository(db, photos)));
+  return (repository ??= getDriver()
+    .then((db) => new Repository(db, photos))
+    .catch((error) => {
+      repository = undefined;
+      throw error;
+    }));
 }

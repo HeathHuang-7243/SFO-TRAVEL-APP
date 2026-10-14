@@ -1,6 +1,6 @@
 import { Capacitor } from "@capacitor/core";
 import { CapacitorSQLite, SQLiteConnection } from "@capacitor-community/sqlite";
-import { SQLITE_SCHEMA, sqliteKeyValue } from "./sqlite-kv";
+import { openNativeDriver } from "./native";
 
 export interface KeyValue {
   get(key: string): Promise<string | null>;
@@ -8,22 +8,16 @@ export interface KeyValue {
   remove(key: string): Promise<void>;
 }
 let driver: Promise<KeyValue> | undefined;
+const sqlite = new SQLiteConnection(CapacitorSQLite);
 export function getDriver(): Promise<KeyValue> {
-  return (driver ??= openDriver());
+  return (driver ??= openDriver().catch((error) => {
+    driver = undefined;
+    throw error;
+  }));
 }
 async function openDriver(): Promise<KeyValue> {
   if (Capacitor.isNativePlatform()) {
-    const sqlite = new SQLiteConnection(CapacitorSQLite);
-    const db = await sqlite.createConnection(
-      "sfo_travel",
-      false,
-      "no-encryption",
-      1,
-      false,
-    );
-    await db.open();
-    await db.execute(SQLITE_SCHEMA);
-    return sqliteKeyValue(db);
+    return openNativeDriver(sqlite);
   }
   // Browser preview only; Android always uses SQLite and never silently falls back.
   const db = await new Promise<IDBDatabase>((resolve, reject) => {

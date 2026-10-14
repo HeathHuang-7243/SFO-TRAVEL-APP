@@ -4,7 +4,7 @@ import { SQLITE_SCHEMA, sqliteKeyValue } from "../src/storage/sqlite-kv";
 
 function database() {
   const sql = new DatabaseSync(":memory:");
-  sql.exec(SQLITE_SCHEMA);
+  for (const statement of SQLITE_SCHEMA) sql.exec(statement);
   let failure = false;
   const driver = {
     async query(statement: string, values: any[]) {

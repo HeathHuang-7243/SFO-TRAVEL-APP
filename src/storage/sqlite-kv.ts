@@ -1,8 +1,12 @@
 import type { SQLiteDBConnection } from "@capacitor-community/sqlite";
 import type { KeyValue } from "./driver";
 
-export const SQLITE_SCHEMA =
-  "CREATE TABLE IF NOT EXISTS local_data (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL); CREATE TABLE IF NOT EXISTS local_chunks (key TEXT NOT NULL, part INTEGER NOT NULL, value TEXT NOT NULL, PRIMARY KEY(key,part));";
+// Execute each statement separately: Android's plugin splits batches on ;\n,
+// and native execSQL silently ignores a second statement on the same line.
+export const SQLITE_SCHEMA = [
+  "CREATE TABLE IF NOT EXISTS local_data (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL);",
+  "CREATE TABLE IF NOT EXISTS local_chunks (key TEXT NOT NULL, part INTEGER NOT NULL, value TEXT NOT NULL, PRIMARY KEY(key,part));",
+];
 
 // Keep individual SQLite rows well below Android's CursorWindow limit.
 // Do not split UTF-16 surrogate pairs across rows (for example emoji in notes).

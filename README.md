@@ -33,7 +33,7 @@ npm run android:debug      # 前端构建 + 同步 + Gradle APK 构建
 
 ## 打包与发布
 
-- 推送 `main`、PR 或手动运行 **Android checks and debug APK**：检查、测试并构建 Debug APK，上传为 Actions artifact。
+- 推送 `main`、PR 或手动运行 **Android checks and debug APK**：检查、测试并构建 Debug APK，通过 Android 35 模拟器的原生 SQLite 启动与页面重载测试后，上传为 Actions artifact。
 - 正式发布：按 [发布说明](docs/RELEASING.md) 配置持久签名密钥，再推送与 `package.json` 一致的标签，如 `v1.0.0`。验证通过后发布 APK、SHA-256 校验和及签名证书信息到 GitHub Releases。
 - Debug 包名 `com.heathhuang.sfotravel.debug`，正式包名 `com.heathhuang.sfotravel`，两者独立安装和存储，可用加密备份迁移。
 - 缺少正式签名 Secrets 时发布停止，绝不以 Debug 密钥发布正式版。
