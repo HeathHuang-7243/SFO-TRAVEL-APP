@@ -37,6 +37,7 @@ import org.junit.runner.RunWith;
 public class StorageStartupTest {
     private static final String DB_FILE = "sfo_travelSQLite.db";
     private static final String PERSONAL = "{\"version\":1,\"expenses\":[],\"favorites\":[\"native-test\"]}";
+    private static final String TEST_PASSWORD = "test-password-123";
     private ActivityScenario<MainActivity> scenario;
 
     @Before public void resetTestDatabase() {
@@ -259,6 +260,11 @@ public class StorageStartupTest {
     }
 
     private void awaitApp() throws Exception {
+        await("!!document.querySelector('.access-form') || !!document.querySelector('.app main') || document.body.textContent.includes('Storage unavailable')");
+        if ("true".equals(evaluate("!!document.querySelector('.access-form')"))) {
+            fillPasswordForm(TEST_PASSWORD);
+            evaluate("document.querySelector('.access-form').requestSubmit(); true");
+        }
         await("!!document.querySelector('.app main') || document.body.textContent.includes('Storage unavailable')");
         // Only collect diagnostics on failure. innerText forces layout during cold WebView startup.
         if (!"true".equals(evaluate("!!document.querySelector('.app main')"))) {
@@ -270,6 +276,45 @@ public class StorageStartupTest {
             evaluate("document.querySelector('.welcome-start').click(); true");
             await("!document.querySelector('.welcome-panel')");
         }
+    }
+
+    private void fillPasswordForm(String password) throws Exception {
+        evaluate("(() => { const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;"
+            + " document.querySelectorAll('.access-form input[type=password]').forEach(input => { setter.call(input, " + JSONObject.quote(password)
+            + "); input.dispatchEvent(new Event('input', {bubbles:true})); }); })(); true");
+    }
+
+    @Test public void passwordAfterUpgradeKeepsRecordsOnFailureAndSurvivesRecreation() throws Exception {
+        launch();
+        JSONObject statement = new JSONObject().put("statement", "INSERT OR REPLACE INTO local_chunks(key,part,value) VALUES(?,?,?)")
+            .put("values", new JSONArray().put("personal:v1").put(0).put(PERSONAL));
+        nativeCall("executeSet", new JSONObject().put("set", new JSONArray().put(statement)).put("transaction", true));
+        scenario.close(); scenario = null;
+        Context context = ApplicationProvider.getApplicationContext();
+        android.content.SharedPreferences settings = context.getSharedPreferences("access_lock", 0);
+        JSONObject before = new JSONObject(settings.getString("record", ""));
+        assertFalse(before.toString().contains(TEST_PASSWORD));
+        before.put("approvedVersion", "previous-version");
+        assertTrue(settings.edit().putString("record", before.toString()).commit());
+        scenario = ActivityScenario.launch(MainActivity.class);
+        await("!!document.querySelector('.access-form[data-access-mode=unlock]')");
+        assertEquals("false", evaluate("!!document.querySelector('.app main')"));
+        fillPasswordForm("wrong-password");
+        evaluate("document.querySelector('.access-form').requestSubmit(); true");
+        await("!!document.querySelector('.access-form [role=alert]')");
+        assertEquals("false", evaluate("!!document.querySelector('.app main')"));
+        assertEquals("previous-version", new JSONObject(settings.getString("record", "")).getString("approvedVersion"));
+        try (SQLiteDatabase database = SQLiteDatabase.openDatabase(context.getDatabasePath(DB_FILE).getPath(), null, SQLiteDatabase.OPEN_READONLY);
+             Cursor row = database.rawQuery("SELECT value FROM local_chunks WHERE key='personal:v1' AND part=0", null)) {
+            assertTrue(row.moveToFirst()); assertEquals(PERSONAL, row.getString(0));
+        }
+        fillPasswordForm(TEST_PASSWORD);
+        evaluate("document.querySelector('.access-form').requestSubmit(); true");
+        await("!!document.querySelector('.app main')");
+        assertEquals(PERSONAL, query("SELECT value FROM local_chunks WHERE key='personal:v1'").getJSONObject(0).getString("value"));
+        scenario.recreate();
+        await("!!document.querySelector('.app main')");
+        assertEquals("false", evaluate("!!document.querySelector('.access-form')"));
     }
 
     private JSONArray query(String sql) throws Exception {

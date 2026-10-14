@@ -1,0 +1,112 @@
+import { describe, expect, it } from "vitest";
+import { PasswordLock, type AccessStore } from "../src/services/access-lock";
+
+function fixture() {
+  let value: string | null = null;
+  const store: AccessStore = {
+    async read() {
+      return value;
+    },
+    async replace(expected, next) {
+      if (value !== expected) throw Error("conflict");
+      value = next;
+    },
+  };
+  return {
+    store,
+    raw: () => value,
+    corrupt: (raw: string) => {
+      value = raw;
+    },
+  };
+}
+describe("update password gate", () => {
+  it("remembers setup within a version, requires the same password after updates, and never stores plaintext", async () => {
+    const f = fixture(),
+      old = new PasswordLock(f.store, async () => "1002001");
+    expect(await old.state()).toBe("setup");
+    await old.setup("correct-password");
+    expect(f.raw()).not.toContain("correct-password");
+    expect(await new PasswordLock(f.store, async () => "1002001").state()).toBe(
+      "unlocked",
+    );
+    const next = new PasswordLock(f.store, async () => "1003000");
+    expect(await next.state()).toBe("locked");
+    const before = JSON.parse(f.raw()!);
+    await expect(next.unlock("wrong-password")).rejects.toMatchObject({
+      code: "incorrect",
+    });
+    expect(await next.state()).toBe("locked");
+    expect(JSON.parse(f.raw()!)).toMatchObject({
+      salt: before.salt,
+      verifier: before.verifier,
+      approvedVersion: before.approvedVersion,
+    });
+    await next.unlock("correct-password");
+    expect(await next.state()).toBe("unlocked");
+    await expect(next.setup("replacement-password")).rejects.toMatchObject({
+      code: "exists",
+    });
+  });
+  it("changes passwords only after verifying the old password", async () => {
+    const f = fixture(),
+      lock = new PasswordLock(f.store, async () => "1");
+    await lock.setup("original-password");
+    await expect(
+      lock.change("wrong-password", "new-password"),
+    ).rejects.toMatchObject({ code: "incorrect" });
+    await lock.change("original-password", "new-password");
+    const updated = new PasswordLock(f.store, async () => "2");
+    await expect(updated.unlock("original-password")).rejects.toMatchObject({
+      code: "incorrect",
+    });
+    await updated.unlock("new-password");
+    expect(await updated.state()).toBe("unlocked");
+  });
+  it("fails closed on corrupt settings or failed writes and never resets them", async () => {
+    const f = fixture(),
+      lock = new PasswordLock(f.store, async () => "1");
+    f.corrupt("broken settings");
+    await expect(lock.state()).rejects.toMatchObject({ code: "invalid" });
+    await expect(lock.setup("replacement-password")).rejects.toMatchObject({
+      code: "exists",
+    });
+    expect(f.raw()).toBe("broken settings");
+    const unavailable = new PasswordLock(
+      {
+        async read() {
+          return null;
+        },
+        async replace() {
+          throw Error("disk full");
+        },
+      },
+      async () => "1",
+    );
+    await expect(unavailable.setup("valid-password")).rejects.toThrow(
+      "disk full",
+    );
+  });
+  it("throttles repeated failures temporarily without destroying the verifier", async () => {
+    const f = fixture();
+    let now = 100000;
+    const lock = new PasswordLock(
+      f.store,
+      async () => "1",
+      () => now,
+    );
+    await lock.setup("correct-password");
+    const verifier = JSON.parse(f.raw()!).verifier;
+    for (let i = 0; i < 5; i++)
+      await expect(lock.unlock("wrong-password")).rejects.toMatchObject({
+        code: "incorrect",
+      });
+    await expect(lock.unlock("correct-password")).rejects.toMatchObject({
+      code: "rate",
+    });
+    now += 30001;
+    await lock.unlock("correct-password");
+    expect(JSON.parse(f.raw()!).verifier).toBe(verifier);
+    expect(JSON.parse(f.raw()!).failures).toBe(0);
+  });
+});

@@ -8,6 +8,12 @@ GitHub → Actions → Android checks and debug APK → 最新成功运行 → A
 
 Debug 使用独立 `.debug` 包名。GitHub 运行器的 Debug 密钥可能每次改变，测试包之间不保证覆盖安装。卸载前先备份；日常使用应使用固定密钥签名的正式版。
 
+### 1.3.0 更新后密码解锁
+
+首次设置密码，后续更新后输入该密码即可继续使用，同版本重启不重复询问。输错、取消或暂不输入均不删除数据。设置中可验证旧密码后修改；密码仅保护应用入口，不额外加密 SQLite 或照片。
+
+从固定签名的 v1.2.1 可直接覆盖安装，已有数据保留；首次设置密码不要求导出或恢复备份。发布测试还会通过真实 APK 界面设置密码，覆盖安装后验证输错不改动数据库、正确密码可解锁、再次启动无需重复输入。
+
 ### 1.2.1 固定签名与应用内更新
 
 正式安装包名称为 `SFOBusinessTravel-v1.2.1.apk`，包名保持 `com.heathhuang.sfotravel`。设置中检查公开 GitHub Releases，下载到私有缓存，核验 SHA-256、包名、相同签名和递增版本后调用系统安装器。需用户确认，不会静默安装。
@@ -67,15 +73,16 @@ gh secret set SFO_SIGNING_BUNDLE --repo HeathHuang-7243/SFO-TRAVEL-APP < /安全
 
 ## 发布版本
 
-1. 确认 `main` 检查通过，并在真机验证相机、分享、SQLite 持久化、升级和恢复。
-2. 更新版本，例如 `npm version 1.0.1 --no-git-tag-version`，提交并推送。
-3. 创建对应标签：
+1. 更新 `package.json` 与 lockfile 的版本，提交并推送 `main`。在真机验证相机、分享、SQLite 持久化、升级和恢复。
+2. 在 Actions → **Signed Android release** → Run workflow，选择 `main`，填写对应版本标签，例如 `v1.3.0`。也可运行：
 
 ```sh
-git tag v1.0.1
-git push origin main
-git push origin v1.0.1
+gh workflow run release.yml --ref main -f release_tag=v1.3.0
 ```
+
+3. 工作流等待该提交的 Android checks 成功，并通过正式签名覆盖安装测试后，才创建标签与 Release。失败时可以修复代码后重新运行，未发布的版本无需提前创建标签。已有标签指向其他提交时拒绝发布。
+
+仍支持推送与版本匹配的 `v*` 标签触发；不要移动已发布标签。
 
 `Signed Android release` 拒绝版本不一致、缺少签名或测试未通过的发布。成功后生成 APK、`SHA256SUMS`、`signature.txt`（公开证书信息，不含私钥）。同版本不覆盖发布，修复应使用新版本，避免移动已发布标签。
 
@@ -87,4 +94,4 @@ git push origin v1.0.1
 
 登录 GitHub 下载 Release APK，在安卓文件管理器中打开，根据系统提示允许该来源安装。同签名新版本可覆盖升级并保留数据。Debug / Release 之间使用加密备份迁移。
 
-应用内支持用户主动检查、下载并确认安装更新；未配置 Google Play、静默自动更新或云同步。推送代码只构建测试包，正式发布需要显式推送版本标签。
+应用内支持用户主动检查、下载并确认安装更新；未配置 Google Play、静默自动更新或云同步。推送代码只构建测试包，正式发布需要手动运行发布工作流或显式推送版本标签。

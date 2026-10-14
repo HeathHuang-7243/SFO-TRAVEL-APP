@@ -12,6 +12,7 @@ public class MainActivity extends BridgeActivity {
     @Override public void onCreate(Bundle savedInstanceState) {
         registerPlugin(TravelDevicePlugin.class);
         registerPlugin(AppUpdaterPlugin.class);
+        registerPlugin(AccessStorePlugin.class);
         super.onCreate(savedInstanceState);
         applySystemTheme();
     }

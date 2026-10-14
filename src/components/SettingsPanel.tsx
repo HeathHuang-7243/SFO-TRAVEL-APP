@@ -14,6 +14,7 @@ import { availableCities } from "../lib/city-clocks";
 import type { Preferences } from "../services/preferences";
 import ThemeToggle from "./ThemeToggle";
 import UpdatePanel from "./UpdatePanel";
+import PasswordSettings from "./PasswordSettings";
 
 export default function SettingsPanel({
   lang,
@@ -220,6 +221,7 @@ export default function SettingsPanel({
                 : "需要 GitHub 账号。反馈会公开显示，请勿上传个人账目、凭证或备份文件。"}
             </p>
           </section>
+          <PasswordSettings lang={lang} />
           <UpdatePanel lang={lang} />
           <button className="secondary settings-about" onClick={onAbout}>
             {en ? "About this app · Introduction" : "关于应用 · 使用说明"}

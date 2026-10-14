@@ -3,6 +3,11 @@ test.beforeEach(async ({ page }) => {
   // Make every public data request fail; bundled content and local writes must work.
   await page.route("https://**/*", (route) => route.abort());
   await page.goto("/");
+  await page.getByLabel("设置密码", { exact: true }).fill("test-password-123");
+  await page
+    .getByLabel("再次输入密码", { exact: true })
+    .fill("test-password-123");
+  await page.getByRole("button", { name: "设置密码并继续" }).click();
   const welcome = page.getByRole("dialog", { name: "欢迎使用「湾区随行」" });
   await welcome.getByRole("checkbox", { name: "不再显示" }).check();
   await welcome.getByRole("button", { name: "开始使用" }).click();
@@ -259,13 +264,13 @@ test("update settings handle offline checks, no release and a verified newer APK
   await page.route(api, (route) =>
     route.fulfill({
       json: {
-        tag_name: "v1.3.0",
+        tag_name: "v99.0.0",
         body: "改进更新体验",
         assets: [
           {
-            name: "SFOBusinessTravel-v1.3.0.apk",
+            name: "SFOBusinessTravel-v99.0.0.apk",
             browser_download_url:
-              "https://github.com/HeathHuang-7243/SFO-TRAVEL-APP/releases/download/v1.3.0/SFOBusinessTravel-v1.3.0.apk",
+              "https://github.com/HeathHuang-7243/SFO-TRAVEL-APP/releases/download/v99.0.0/SFOBusinessTravel-v99.0.0.apk",
             digest: "sha256:" + "a".repeat(64),
             size: 30000000,
           },
@@ -274,9 +279,72 @@ test("update settings handle offline checks, no release and a verified newer APK
     }),
   );
   await check.click();
-  await expect(section).toContainText("发现新版本 1.3.0");
+  await expect(section).toContainText("发现新版本 99.0.0");
   await expect(section.getByRole("link", { name: "下载 APK" })).toHaveAttribute(
     "href",
-    /SFOBusinessTravel-v1\.3\.0\.apk$/,
+    /SFOBusinessTravel-v99\.0\.0\.apk$/,
   );
+});
+
+test("update password gate preserves expenses on wrong passwords and supports password changes", async ({
+  page,
+}) => {
+  await page.getByRole("button", { name: /旅行账本/ }).click();
+  await page
+    .getByRole("button", { name: "新增消费", exact: true })
+    .first()
+    .click();
+  const expense = page.getByRole("dialog", { name: "记录消费" });
+  await expense.getByLabel("金额", { exact: true }).fill("88");
+  await expense.getByLabel("描述", { exact: true }).fill("密码升级保留测试");
+  await expense.getByRole("button", { name: "保存账目", exact: true }).click();
+  await expect(page.locator(".expense-row")).toHaveCount(1);
+  async function simulateUpdate() {
+    await page.evaluate(() => {
+      const key = "sfo-access-lock:v1",
+        record = JSON.parse(localStorage.getItem(key)!);
+      record.approvedVersion = "previous-version";
+      localStorage.setItem(key, JSON.stringify(record));
+    });
+    await page.reload();
+    await expect(
+      page.locator('.access-form[data-access-mode="unlock"]'),
+    ).toBeVisible();
+    await expect(page.locator(".app main")).toHaveCount(0);
+  }
+  await simulateUpdate();
+  await page.getByLabel("密码", { exact: true }).fill("wrong-password");
+  await page.getByRole("button", { name: "解锁并继续" }).click();
+  await expect(page.getByRole("alert")).toContainText("记录没有被删除");
+  await expect(page.locator(".app main")).toHaveCount(0);
+  await page.screenshot({
+    path: "test-results/password-wrong-preserves-records.png",
+  });
+  await page.getByLabel("密码", { exact: true }).fill("test-password-123");
+  await page.getByRole("button", { name: "解锁并继续" }).click();
+  await page.getByRole("button", { name: /旅行账本/ }).click();
+  await expect(page.locator(".expense-row")).toContainText("密码升级保留测试");
+  await page.getByRole("button", { name: "设置中心", exact: true }).click();
+  await page.getByRole("button", { name: "修改密码", exact: true }).click();
+  await page.getByLabel("当前密码", { exact: true }).fill("test-password-123");
+  await page.getByLabel("新密码", { exact: true }).fill("updated-password-456");
+  await page
+    .getByLabel("再次输入新密码", { exact: true })
+    .fill("updated-password-456");
+  await page.getByRole("button", { name: "保存新密码" }).click();
+  await expect(page.locator(".password-settings [role=status]")).toContainText(
+    "密码已修改",
+  );
+  await simulateUpdate();
+  await page.getByLabel("密码", { exact: true }).fill("test-password-123");
+  await page.getByRole("button", { name: "解锁并继续" }).click();
+  await expect(page.getByRole("alert")).toContainText("密码不正确");
+  await page.getByLabel("密码", { exact: true }).fill("updated-password-456");
+  await page.getByRole("button", { name: "解锁并继续" }).click();
+  await expect(page.locator(".app main")).toBeVisible();
+  await page.reload();
+  await expect(page.locator(".app main")).toBeVisible();
+  await expect(page.locator(".access-form")).toHaveCount(0);
+  await page.getByRole("button", { name: /旅行账本/ }).click();
+  await expect(page.locator(".expense-row")).toContainText("密码升级保留测试");
 });

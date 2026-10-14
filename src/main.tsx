@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { getRepository } from "./storage/repository";
 import { openExternal } from "./services/device";
 import TravelApp from "./components/TravelApp";
+import AccessGate from "./components/AccessGate";
 import { startThemeSync } from "./services/theme";
 import "./globals.css";
 import "./themes.css";
@@ -72,6 +73,8 @@ function Boot() {
 startThemeSync();
 createRoot(document.getElementById("root")!).render(
   <ErrorBoundary>
-    <Boot />
+    <AccessGate>
+      <Boot />
+    </AccessGate>
   </ErrorBoundary>,
 );

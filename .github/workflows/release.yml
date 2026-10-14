@@ -2,6 +2,12 @@ name: Signed Android release
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Version tag matching package.json (created only after checks pass)
+        required: true
+        type: string
 permissions:
   contents: write
   actions: read
@@ -12,6 +18,8 @@ jobs:
   release:
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    env:
+      RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -19,9 +27,15 @@ jobs:
           node-version: "22"
           cache: npm
       - name: Verify release tag
-        env:
-          RELEASE_TAG: ${{ github.ref_name }}
-        run: node scripts/verify-release.mjs
+        run: |
+          node scripts/verify-release.mjs
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] && [ "$GITHUB_REF" != refs/heads/main ]; then
+            echo 'Manual releases must use main'; exit 1
+          fi
+          existing="$(git ls-remote --tags origin "refs/tags/$RELEASE_TAG" "refs/tags/$RELEASE_TAG^{}" | awk '/\^\{\}$/ {peeled=$1; next} {direct=$1} END {print peeled ? peeled : direct}')"
+          if [ -n "$existing" ] && [ "$existing" != "$GITHUB_SHA" ]; then
+            echo 'Release tag already points to a different commit'; exit 1
+          fi
       - name: Check signing secrets
         env:
           SFO_SIGNING_BUNDLE: ${{ secrets.SFO_SIGNING_BUNDLE }}
@@ -57,8 +71,6 @@ jobs:
           SFO_SIGNING_BUNDLE: ${{ secrets.SFO_SIGNING_BUNDLE }}
         run: node scripts/build-release.mjs
       - name: Verify and prepare release files
-        env:
-          RELEASE_TAG: ${{ github.ref_name }}
         run: |
           mkdir release
           cp android/app/build/outputs/apk/release/app-release.apk "release/SFOBusinessTravel-$RELEASE_TAG.apk"
@@ -83,6 +95,13 @@ jobs:
           emulator-boot-timeout: 300
           disable-animations: true
           script: bash scripts/test-upgrade.sh "$RUNNER_TEMP/sfo-upgrade-baseline.apk" android/app/build/outputs/apk/release/app-release.apk
+      - name: Upload upgrade failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: signed-upgrade-failure
+          path: test-results/upgrade/
+          if-no-files-found: ignore
       - name: Require Android checks for this commit
         env:
           GH_TOKEN: ${{ github.token }}
@@ -100,11 +119,10 @@ jobs:
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.ref_name }}
         run: |
           notes="docs/release-notes/$RELEASE_TAG.md"
           if [ -f "$notes" ]; then
-            gh release create "$RELEASE_TAG" release/* --verify-tag --title "SFOBusinessTravel $RELEASE_TAG" --notes-file "$notes"
+            gh release create "$RELEASE_TAG" release/* --target "$GITHUB_SHA" --title "SFOBusinessTravel $RELEASE_TAG" --notes-file "$notes"
           else
-            gh release create "$RELEASE_TAG" release/* --verify-tag --title "SFOBusinessTravel $RELEASE_TAG" --generate-notes
+            gh release create "$RELEASE_TAG" release/* --target "$GITHUB_SHA" --title "SFOBusinessTravel $RELEASE_TAG" --generate-notes
           fi

@@ -2,12 +2,13 @@
 
 独立的安卓商务差旅应用：本地账本、凭证照片、汇率与小费、旧金山天气与景点、Microsoft Ignite 会议收藏。
 
-从 [GitHub Releases](https://github.com/HeathHuang-7243/SFO-TRAVEL-APP/releases/latest) 下载 `SFOBusinessTravel-v版本号.apk`。正式版使用固定签名，后续可在 **设置 → 应用更新 → 检查更新** 下载并覆盖安装，保留本地数据。
+从 [GitHub Releases](https://github.com/HeathHuang-7243/SFO-TRAVEL-APP/releases/latest) 下载 `SFOBusinessTravel-v版本号.apk`。正式版使用固定签名，后续可在 **设置 → 应用更新 → 检查更新** 下载并覆盖安装，保留本地数据，无需每次导出再恢复。
 
 本仓库负责安卓客户端开发、打包和发布。原网站仓库 `HeathHuang-7243/SFO-Business-Travel` 不参与构建，也不会被本仓库工作流修改或部署。
 
 ## 功能与数据
 
+- 首次设置解锁密码，更新后输入密码继续使用；输错或暂不输入只保持锁定，不删除记录。同版本再次打开无需重复输入，设置中可修改密码。
 - 安卓使用 **SQLite + 应用私有文件目录**，无需账号或服务器。
 - 账目保存消费时的汇率，后续刷新不会改写旧账。
 - 离线记账、查看凭证、浏览内置景点和缓存会议，使用手动或历史汇率。
@@ -21,7 +22,7 @@
 - AES-256-GCM 加密完整备份，包含账目、照片和收藏。恢复合并已有数据，同 ID 账目保留本机版本。
 - 不向 GitHub、原网站或自建服务器上传个人数据。Android 自动备份及设备迁移已关闭，请自行导出备份。相册副本可能被用户的系统相册云同步服务备份。
 
-卸载或清除应用数据会删除本地记录。备份密码无法找回；完整备份有效载荷上限 70 MB。原网站线上账目不会自动迁入，目前导入格式仅支持本应用备份。
+解锁密码是应用入口保护，不会额外加密数据库或凭证，也不能恢复卸载后的数据。卸载或清除应用数据会删除本地记录。备份密码无法找回；完整备份有效载荷上限 70 MB。原网站线上账目不会自动迁入，目前导入格式仅支持本应用备份。
 
 ## 开发
 
@@ -41,7 +42,7 @@ npm run android:debug      # 前端构建 + 同步 + Gradle APK 构建
 ## 打包与发布
 
 - 推送 `main`、PR 或手动运行 **Android checks and debug APK**：检查、测试并构建 Debug APK，通过 Android 35 模拟器的原生 SQLite 启动与页面重载测试后，上传为 Actions artifact。
-- 正式发布：按 [发布说明](docs/RELEASING.md) 配置持久签名密钥，再推送与 `package.json` 一致的标签，如 `v1.0.0`。验证通过后发布 APK、SHA-256 校验和及签名证书信息到 GitHub Releases。
+- 正式发布：按 [发布说明](docs/RELEASING.md) 配置持久签名密钥，在 Actions 手动运行 **Signed Android release**，填写与 `package.json` 一致的标签，如 `v1.3.0`（也支持推送标签触发）。验证通过后发布 APK、SHA-256 校验和及签名证书信息到 GitHub Releases。
 - Debug 包名 `com.heathhuang.sfotravel.debug`，正式包名 `com.heathhuang.sfotravel`，两者独立安装和存储，可用加密备份迁移。
 - 缺少正式签名 Secrets 时发布停止，绝不以 Debug 密钥发布正式版。
 - Actions 测试包下载需要登录 GitHub；公开 Release 的资源可直接下载。GitHub Releases 不等于 Google Play 上架。
