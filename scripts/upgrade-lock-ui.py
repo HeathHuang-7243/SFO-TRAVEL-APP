@@ -16,7 +16,11 @@ def adb(*args):
 def nodes():
     adb("shell", "rm", "-f", "/sdcard/sfo-upgrade-ui.xml")
     adb("shell", "uiautomator", "dump", "/sdcard/sfo-upgrade-ui.xml")
-    return list(ET.fromstring(adb("shell", "cat", "/sdcard/sfo-upgrade-ui.xml")).iter("node"))
+    result = list(ET.fromstring(adb("shell", "cat", "/sdcard/sfo-upgrade-ui.xml")).iter("node"))
+    # Android WebView exposes EditText nodes but does not export HTML IDs.
+    for index, node in enumerate(n for n in result if n.get("class") == "android.widget.EditText"):
+        node.set("field-index", str(index))
+    return result
 
 
 def visible(node):
@@ -51,8 +55,8 @@ def tap(node):
     adb("shell", "input", "tap", str((x1 + x2) // 2), str((y1 + y2) // 2))
 
 
-def fill(identifier, password):
-    node = wait_for(lambda n: n.get("resource-id", "").endswith(identifier), scroll=True)
+def fill(index, password):
+    node = wait_for(lambda n: n.get("field-index") == str(index), scroll=True)
     tap(node)
     adb("shell", "input", "text", password)
 
@@ -68,16 +72,16 @@ def ready():
 
 action = sys.argv[1]
 if action == "setup":
-    fill("access-new-password", PASSWORD)
-    fill("access-repeat-password", PASSWORD)
+    fill(0, PASSWORD)
+    fill(1, PASSWORD)
     submit(True)
     ready()
 elif action == "wrong":
-    fill("access-current-password", "wrong-password")
+    fill(0, "wrong-password")
     submit()
     wait_for(lambda n: "密码不正确" in n.get("text", "") or "Incorrect password" in n.get("text", ""))
 elif action == "unlock":
-    fill("access-current-password", PASSWORD)
+    fill(0, PASSWORD)
     submit()
     ready()
 elif action == "ready":
