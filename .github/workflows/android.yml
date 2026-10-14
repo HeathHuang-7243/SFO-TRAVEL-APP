@@ -37,7 +37,7 @@ jobs:
           packages: "platform-tools platforms;android-35 build-tools;35.0.0"
       - uses: gradle/actions/setup-gradle@v4
       - run: npx cap sync android
-      - run: ./gradlew assembleDebug lintDebug --no-daemon
+      - run: ./gradlew assembleDebug :app:testDebugUnitTest lintDebug --no-daemon
         working-directory: android
       - name: Reserve disk space for the emulator
         # Hosted runner only. This app uses prebuilt native libraries, not the NDK.

@@ -160,6 +160,12 @@ html[data-theme="dark"] .app .app-tabs {
   grid-template-columns: minmax(0, 1fr);
   gap: 12px;
 }
+.update-notes {
+  max-height: 180px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .welcome-choice {
   display: flex;
   align-items: center;

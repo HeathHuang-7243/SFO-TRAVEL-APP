@@ -240,3 +240,43 @@ test("introduction repeats until opted out and can be reopened from settings", a
   await page.keyboard.press("Escape");
   await expect(welcome).not.toBeVisible();
 });
+
+test("update settings handle offline checks, no release and a verified newer APK", async ({
+  page,
+}) => {
+  await page.getByRole("button", { name: "设置中心", exact: true }).click();
+  const section = page.locator(".update-section");
+  const check = section.getByRole("button", { name: "检查更新" });
+  await check.click();
+  await expect(section.getByRole("status")).toContainText("检查更新失败");
+  const api =
+    "https://api.github.com/repos/HeathHuang-7243/SFO-TRAVEL-APP/releases/latest";
+  await page.route(api, (route) => route.fulfill({ status: 404, json: {} }));
+  await check.click();
+  await expect(section.getByRole("status")).toContainText(
+    "暂时没有更新的正式版本",
+  );
+  await page.route(api, (route) =>
+    route.fulfill({
+      json: {
+        tag_name: "v1.3.0",
+        body: "改进更新体验",
+        assets: [
+          {
+            name: "SFOBusinessTravel-v1.3.0.apk",
+            browser_download_url:
+              "https://github.com/HeathHuang-7243/SFO-TRAVEL-APP/releases/download/v1.3.0/SFOBusinessTravel-v1.3.0.apk",
+            digest: "sha256:" + "a".repeat(64),
+            size: 30000000,
+          },
+        ],
+      },
+    }),
+  );
+  await check.click();
+  await expect(section).toContainText("发现新版本 1.3.0");
+  await expect(section.getByRole("link", { name: "下载 APK" })).toHaveAttribute(
+    "href",
+    /SFOBusinessTravel-v1\.3\.0\.apk$/,
+  );
+});

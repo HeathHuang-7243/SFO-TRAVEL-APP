@@ -8,6 +8,14 @@ GitHub → Actions → Android checks and debug APK → 最新成功运行 → A
 
 Debug 使用独立 `.debug` 包名。GitHub 运行器的 Debug 密钥可能每次改变，测试包之间不保证覆盖安装。卸载前先备份；日常使用应使用固定密钥签名的正式版。
 
+### 1.2.0 固定签名与应用内更新
+
+正式安装包名称为 `SFOBusinessTravel-v1.2.0.apk`，包名保持 `com.heathhuang.sfotravel`。设置中检查公开 GitHub Releases，下载到私有缓存，核验 SHA-256、包名、相同签名和递增版本后调用系统安装器。需用户确认，不会静默安装。
+
+旧 `.debug` 测试版与正式版并存。先从测试版导出加密备份，在正式版恢复并核对账目和照片，再决定是否删除测试版；无需先卸载它。旧 Actions 临时签名的私钥不包含在 APK 中，无法从 APK 恢复，也不能用新密钥直接覆盖旧签名。
+
+发布 CI 使用相同固定密钥构建一个较低版本的测试夹具和正式候选包，在独立 Android 35 模拟器中执行覆盖安装，核验 SQLite 文件校验值和私有文件标记保持不变。夹具仅测试升级机制，不发布，也不代表历史版本迁移覆盖；旧数据库结构另由原生存储测试覆盖。
+
 ### 1.1.3 紧凑页脚与问题反馈
 
 去掉页面容器重复的底部留白，保留底部导航遮挡空间。设置中心新增 GitHub Issues 反馈入口。项目代码采用 MIT 许可证，第三方内容范围见根目录 NOTICE.md。
@@ -47,23 +55,15 @@ keytool -genkeypair -v -keystore sfo-travel-release.jks -alias sfo-travel \
 
 保管并离线备份 `.jks`、密码和 alias。**密钥丢失后，已有用户不能直接安装同包名后续升级。** 不要提交 `.jks` 或密码至 Git。
 
-在新仓库 Settings → Secrets and variables → Actions 添加 Repository secrets：
+在新仓库 Settings → Secrets and variables → Actions 添加名为 **`SFO_SIGNING_BUNDLE`** 的 Repository secret，值为一份 JSON，包含 `keystore`（密钥文件 Base64）、`storePassword`、`keyAlias` 和 `keyPassword` 四个字符串字段。不要把真实值提交到仓库、公开 Release 或 Issue 中。
 
-| Secret                | 值                                        |
-| --------------------- | ----------------------------------------- |
-| `SFO_KEYSTORE_BASE64` | `.jks` 文件的 Base64 内容                 |
-| `SFO_STORE_PASSWORD`  | keystore 密码                             |
-| `SFO_KEY_ALIAS`       | `sfo-travel`，或你的 alias                |
-| `SFO_KEY_PASSWORD`    | 私钥密码，PKCS12 通常与 keystore 密码相同 |
-
-也可使用已授权的 GitHub CLI，以管道写入密钥，避免输出到终端（Linux/macOS）：
+已有私密备份 `SFO_SIGNING_BUNDLE.json` 时，复制整份内容到该 Secret；始终复用这份固定密钥。也可使用获授权的 CLI：
 
 ```sh
-base64 < sfo-travel-release.jks | gh secret set SFO_KEYSTORE_BASE64 --repo HeathHuang-7243/SFO-TRAVEL-APP
-gh secret set SFO_STORE_PASSWORD --repo HeathHuang-7243/SFO-TRAVEL-APP
-gh secret set SFO_KEY_ALIAS --repo HeathHuang-7243/SFO-TRAVEL-APP
-gh secret set SFO_KEY_PASSWORD --repo HeathHuang-7243/SFO-TRAVEL-APP
+gh secret set SFO_SIGNING_BUNDLE --repo HeathHuang-7243/SFO-TRAVEL-APP < /安全路径/SFO_SIGNING_BUNDLE.json
 ```
+
+构建脚本 `scripts/build-release.mjs` 在权限为 0600 的临时文件中还原密钥，仅传给 Gradle，结束后删除临时文件。密钥备份需单独安全保管，不随应用发布。
 
 ## 发布版本
 
@@ -87,4 +87,4 @@ git push origin v1.0.1
 
 登录 GitHub 下载 Release APK，在安卓文件管理器中打开，根据系统提示允许该来源安装。同签名新版本可覆盖升级并保留数据。Debug / Release 之间使用加密备份迁移。
 
-尚未配置 Google Play、应用内自动更新或云同步。推送代码只构建测试包，正式发布需要显式推送版本标签。
+应用内支持用户主动检查、下载并确认安装更新；未配置 Google Play、静默自动更新或云同步。推送代码只构建测试包，正式发布需要显式推送版本标签。

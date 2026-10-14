@@ -10,7 +10,7 @@ concurrency:
 jobs:
   release:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -23,17 +23,12 @@ jobs:
         run: node scripts/verify-release.mjs
       - name: Check signing secrets
         env:
-          SFO_KEYSTORE_BASE64: ${{ secrets.SFO_KEYSTORE_BASE64 }}
-          SFO_STORE_PASSWORD: ${{ secrets.SFO_STORE_PASSWORD }}
-          SFO_KEY_ALIAS: ${{ secrets.SFO_KEY_ALIAS }}
-          SFO_KEY_PASSWORD: ${{ secrets.SFO_KEY_PASSWORD }}
+          SFO_SIGNING_BUNDLE: ${{ secrets.SFO_SIGNING_BUNDLE }}
         run: |
-          for name in SFO_KEYSTORE_BASE64 SFO_STORE_PASSWORD SFO_KEY_ALIAS SFO_KEY_PASSWORD; do
-            if [ -z "${!name}" ]; then
-              echo "Missing signing secret: $name. See docs/RELEASING.md."
-              exit 1
-            fi
-          done
+          if [ -z "$SFO_SIGNING_BUNDLE" ]; then
+            echo 'Missing SFO_SIGNING_BUNDLE. See docs/RELEASING.md.'
+            exit 1
+          fi
       - run: npm ci
       - run: npm run check
       - run: npx playwright install --with-deps chromium
@@ -47,30 +42,54 @@ jobs:
           packages: "platform-tools platforms;android-35 build-tools;35.0.0"
       - uses: gradle/actions/setup-gradle@v4
       - run: npx cap sync android
-      - name: Build signed APK
-        working-directory: android
+      - name: Build older-version fixture for upgrade verification
         env:
-          SFO_KEYSTORE_BASE64: ${{ secrets.SFO_KEYSTORE_BASE64 }}
-          SFO_STORE_PASSWORD: ${{ secrets.SFO_STORE_PASSWORD }}
-          SFO_KEY_ALIAS: ${{ secrets.SFO_KEY_ALIAS }}
-          SFO_KEY_PASSWORD: ${{ secrets.SFO_KEY_PASSWORD }}
+          SFO_SIGNING_BUNDLE: ${{ secrets.SFO_SIGNING_BUNDLE }}
         run: |
-          umask 077
-          export SFO_KEYSTORE_PATH="$RUNNER_TEMP/sfo-release.jks"
-          trap 'rm -f "$SFO_KEYSTORE_PATH"' EXIT
-          printf '%s' "$SFO_KEYSTORE_BASE64" | base64 --decode > "$SFO_KEYSTORE_PATH"
-          ./gradlew assembleRelease lintRelease --no-daemon
+          cp package.json "$RUNNER_TEMP/sfo-package.json"
+          trap 'cp "$RUNNER_TEMP/sfo-package.json" package.json' EXIT
+          node -e 'const fs=require("fs");const p=JSON.parse(fs.readFileSync("package.json"));p.version="0.0.1";fs.writeFileSync("package.json",JSON.stringify(p))'
+          node scripts/build-release.mjs
+          cp android/app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/sfo-upgrade-baseline.apk"
+      - name: Build signed APK
+        env:
+          SFO_SIGNING_BUNDLE: ${{ secrets.SFO_SIGNING_BUNDLE }}
+        run: node scripts/build-release.mjs
       - name: Verify and prepare release files
         env:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           mkdir release
-          cp android/app/build/outputs/apk/release/app-release.apk "release/SFO-TRAVEL-APP-$RELEASE_TAG.apk"
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "release/SFO-TRAVEL-APP-$RELEASE_TAG.apk" > release/signature.txt
+          cp android/app/build/outputs/apk/release/app-release.apk "release/SFOBusinessTravel-$RELEASE_TAG.apk"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "release/SFOBusinessTravel-$RELEASE_TAG.apk" > release/signature.txt
+          actual="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' release/signature.txt)"
+          test "$actual" = "$(cat android/release-certificate.sha256)"
           cd release
           sha256sum *.apk > SHA256SUMS
+      - name: Prepare emulator
+        run: |
+          sudo rm -rf /usr/share/dotnet "${ANDROID_HOME:?}/ndk"
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Verify signed upgrade preserves local storage
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          disk-size: 2048M
+          emulator-boot-timeout: 300
+          disable-animations: true
+          script: bash scripts/test-upgrade.sh "$RUNNER_TEMP/sfo-upgrade-baseline.apk" android/app/build/outputs/apk/release/app-release.apk
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
-        run: gh release create "$RELEASE_TAG" release/* --verify-tag --title "SFO Travel $RELEASE_TAG" --generate-notes
+        run: |
+          notes="docs/release-notes/$RELEASE_TAG.md"
+          if [ -f "$notes" ]; then
+            gh release create "$RELEASE_TAG" release/* --verify-tag --title "SFOBusinessTravel $RELEASE_TAG" --notes-file "$notes"
+          else
+            gh release create "$RELEASE_TAG" release/* --verify-tag --title "SFOBusinessTravel $RELEASE_TAG" --generate-notes
+          fi
