@@ -1866,10 +1866,16 @@ export default function TravelApp() {
                 )}
               </>
             )}
-            <footer>
+            <footer className="app-footer">
               <span>
                 © {now?.getFullYear() || 2026} Heath.{" "}
-                {lang === "en" ? "All rights reserved." : "保留所有权利。"}
+                <a
+                  href="https://github.com/HeathHuang-7243/SFO-TRAVEL-APP/blob/main/LICENSE"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  MIT
+                </a>
               </span>
               <span>
                 <ShieldCheck size={13} />

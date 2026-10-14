@@ -1,0 +1,24 @@
+name: 问题反馈 / Bug report
+description: 报告应用异常或界面问题 / Report an app or layout issue
+body:
+  - type: markdown
+    attributes:
+      value: "反馈会公开显示。请勿上传个人账目、凭证、密码或备份文件。 / Reports are public. Do not upload private expenses, receipts, passwords or backups."
+  - type: input
+    id: version
+    attributes:
+      label: 应用版本 / App version
+      placeholder: "例如 / e.g. 1.1.3-debug"
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: 手机型号与安卓版本 / Device and Android version
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 问题和复现步骤 / Problem and steps to reproduce
+      description: 描述期望的结果及实际发生的情况。 / Describe what you expected and what happened.
+    validations:
+      required: true

@@ -1,5 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { X, ImagePlus, MapPin, Palette, ShieldCheck } from "lucide-react";
+import {
+  X,
+  ImagePlus,
+  MapPin,
+  Palette,
+  ShieldCheck,
+  MessageSquare,
+  ExternalLink,
+} from "lucide-react";
 import { Capacitor } from "@capacitor/core";
 import type { Language } from "../lib/i18n";
 import { availableCities } from "../lib/city-clocks";
@@ -187,6 +195,26 @@ export default function SettingsPanel({
               {en
                 ? "Settings stay on this device. Encrypted backups contain your expenses, private receipt photos and favorites."
                 : "设置保存在本机。加密备份包含账目、应用内凭证和收藏。"}
+            </p>
+          </section>
+          <section className="settings-section">
+            <h3>
+              <MessageSquare size={18} />
+              {en ? "Help & feedback" : "帮助与反馈"}
+            </h3>
+            <a
+              className="secondary"
+              href="https://github.com/HeathHuang-7243/SFO-TRAVEL-APP/issues/new/choose"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {en ? "Report an issue · GitHub" : "问题反馈 · GitHub Issues"}
+              <ExternalLink size={16} />
+            </a>
+            <p className="fineprint">
+              {en
+                ? "A GitHub account is needed. Feedback is public: please do not upload personal expenses, receipts or backup files."
+                : "需要 GitHub 账号。反馈会公开显示，请勿上传个人账目、凭证或备份文件。"}
             </p>
           </section>
           {error && (

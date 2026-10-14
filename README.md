@@ -10,7 +10,7 @@
 - 账目保存消费时的汇率，后续刷新不会改写旧账。
 - 离线记账、查看凭证、浏览内置景点和缓存会议，使用手动或历史汇率。
 - 联网直接更新公开的招行牌价、ECB 历史汇率、Open-Meteo 天气和 Ignite 目录，失败显示缓存及时间。
-- 相机/相册凭证、CSV 导出、中英文、浅色/深色主题。
+- 相机/相册凭证、CSV 导出、中英文、浅色/深色/自动跟随系统主题。
 - 左上角设置中心：相册副本开关、三个世界时钟城市、语言、主题及本地备份；底部标签切换主要功能。
 - 相册副本默认关闭。开启后，账目成功保存时额外复制凭证到 `Pictures/SFO Travel`；相册失败不影响已保存的账目，可单独重试。
 - 状态栏时间、电量和导航图标跟随应用深浅色主题，重启及回到前台时恢复。
@@ -40,7 +40,13 @@ npm run android:debug      # 前端构建 + 同步 + Gradle APK 构建
 - 正式发布：按 [发布说明](docs/RELEASING.md) 配置持久签名密钥，再推送与 `package.json` 一致的标签，如 `v1.0.0`。验证通过后发布 APK、SHA-256 校验和及签名证书信息到 GitHub Releases。
 - Debug 包名 `com.heathhuang.sfotravel.debug`，正式包名 `com.heathhuang.sfotravel`，两者独立安装和存储，可用加密备份迁移。
 - 缺少正式签名 Secrets 时发布停止，绝不以 Debug 密钥发布正式版。
-- 私有仓库下载需要访问权限。GitHub Releases 不等于 Google Play 上架。
+- Actions 测试包下载需要登录 GitHub；公开 Release 的资源可直接下载。GitHub Releases 不等于 Google Play 上架。
+
+## 反馈与许可
+
+在应用的 **设置 → 帮助与反馈 → 问题反馈** 打开 [GitHub Issues](https://github.com/HeathHuang-7243/SFO-TRAVEL-APP/issues/new/choose)，报告问题或提出建议。请说明应用版本、安卓版本和复现步骤；不要上传个人账目、凭证、密码或备份文件。
+
+项目代码采用 [MIT License](LICENSE)，允许使用、修改、再分发及商用，需保留版权和许可声明。照片、数据快照、商标和第三方依赖不包含在本项目 MIT 授权中，具体见 [NOTICE.md](NOTICE.md)。原网站仓库的可见性和许可不受影响。
 
 ## 结构
 

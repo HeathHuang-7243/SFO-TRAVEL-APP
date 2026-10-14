@@ -1,0 +1,10 @@
+name: 功能建议 / Feature request
+description: 提出改进想法 / Suggest an improvement
+body:
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: 你的建议 / Your suggestion
+      description: 描述使用场景及希望改善的地方。请勿填写个人账目或隐私信息。 / Describe your use case and proposed improvement, without private information.
+    validations:
+      required: true
