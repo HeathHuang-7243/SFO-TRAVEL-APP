@@ -78,6 +78,8 @@ test("catalogue favorites, language, theme and mobile layout persist", async ({
     .first();
   await expect(bookmark).toBeVisible();
   await bookmark.click();
+  // The icon changes only after the asynchronous local write succeeds.
+  await expect(page.getByRole("button", { name: "取消收藏", exact: true })).toBeVisible();
   await page.reload();
   await page.getByRole("button", { name: /Ignite 会议/ }).click();
   await page.getByRole("button", { name: "只看收藏" }).click();
