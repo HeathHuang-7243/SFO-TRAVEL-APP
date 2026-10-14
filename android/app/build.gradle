@@ -1,0 +1,83 @@
+apply plugin: 'com.android.application'
+def appVersion = new groovy.json.JsonSlurper().parse(file('../../package.json')).version
+def numbers = appVersion.tokenize('.').collect { it as int }
+def signingReady = ['SFO_KEYSTORE_PATH','SFO_STORE_PASSWORD','SFO_KEY_ALIAS','SFO_KEY_PASSWORD'].every { System.getenv(it) }
+
+
+android {
+    namespace "com.heathhuang.sfotravel"
+    compileSdk rootProject.ext.compileSdkVersion
+    buildToolsVersion "35.0.0"
+    defaultConfig {
+        applicationId "com.heathhuang.sfotravel"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode numbers[0] * 1000000 + numbers[1] * 1000 + numbers[2]
+        versionName appVersion
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    signingConfigs {
+        if (signingReady) {
+            release {
+                storeFile file(System.getenv('SFO_KEYSTORE_PATH'))
+                storePassword System.getenv('SFO_STORE_PASSWORD')
+                keyAlias System.getenv('SFO_KEY_ALIAS')
+                keyPassword System.getenv('SFO_KEY_PASSWORD')
+            }
+        }
+    }
+    buildTypes {
+        debug {
+            applicationIdSuffix ".debug"
+            versionNameSuffix "-debug"
+        }
+        release {
+            if (signingReady) signingConfig signingConfigs.release
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}
+
+tasks.register('requireReleaseSigning') {
+    doLast {
+        if (!signingReady) throw new GradleException('Release signing is not configured. See docs/RELEASING.md. Debug signing is never used for releases.')
+    }
+}
+tasks.configureEach {
+    if (name == 'preReleaseBuild') dependsOn 'requireReleaseSigning'
+}

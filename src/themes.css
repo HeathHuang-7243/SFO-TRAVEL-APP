@@ -1,0 +1,335 @@
+:root {
+  color-scheme: light;
+  --surface: #fff;
+  --chart-green: #315d44;
+  --chart-orange: #b16e45;
+  --chart-blue: #647f99;
+}
+.theme-switch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border: 1px solid #d9e3d1;
+  border-radius: 6px;
+  background: transparent;
+  color: #315d44;
+}
+.theme-switch:hover {
+  background: #edf2e9;
+}
+.theme-switch .theme-sun {
+  display: none;
+}
+html[data-theme="dark"] .theme-switch .theme-sun {
+  display: block;
+}
+html[data-theme="dark"] .theme-switch .theme-moon {
+  display: none;
+}
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #111916;
+  --surface: #19251f;
+  --ink: #e5eee7;
+  --muted: #a2b2a5;
+  --line: #34483a;
+  --green: #add6af;
+  --sage: #24392b;
+  --cream: #362e21;
+  --chart-green: #abd5a7;
+  --chart-orange: #e6b08a;
+  --chart-blue: #a1bde0;
+}
+html[data-theme="dark"] :is(.sidebar, .topbar) {
+  background: #152019;
+  border-color: var(--line);
+}
+html[data-theme="dark"]
+  :is(
+    .card,
+    .stat,
+    .place-card,
+    .session-card,
+    .modal,
+    .search,
+    .secondary,
+    .forecast-strip button,
+    .pills button,
+    .tip-options button,
+    input,
+    select,
+    textarea
+  ) {
+  background: var(--surface);
+  color: var(--ink);
+  border-color: var(--line);
+}
+html[data-theme="dark"]
+  :is(
+    .amount-input,
+    .converted,
+    .ignite-promo,
+    .expense-summary,
+    .weather-panel,
+    .ignite-banner,
+    .detail-banner,
+    .address-copy,
+    .photo-upload,
+    .no-photo
+  ) {
+  background: #203128;
+  color: var(--ink);
+  border-color: var(--line);
+}
+html[data-theme="dark"]
+  :is(.amount-input input, .amount-input select, .search input) {
+  background: transparent;
+}
+html[data-theme="dark"]
+  :is(
+    .secondary:hover,
+    .iconbutton:hover,
+    .theme-switch:hover,
+    nav button:hover
+  ) {
+  background: #293e32;
+  color: #d1ead4;
+}
+html[data-theme="dark"]
+  :is(
+    nav button.active,
+    .tip-options button.selected,
+    .pills button.selected,
+    .forecast-strip button.selected,
+    .secondary.selected,
+    .saved
+  ) {
+  background: #2d4834;
+  color: #d8f1d6;
+  border-color: #799c71;
+}
+html[data-theme="dark"] .primary {
+  background: #a7d2a7;
+  color: #142418;
+}
+html[data-theme="dark"] .primary:hover {
+  background: #b8e1b7;
+}
+html[data-theme="dark"] :is(.account-link, .language-switch, .theme-switch) {
+  border-color: #48624d;
+  color: #d0e7cf;
+  background: #203128;
+}
+html[data-theme="dark"] :is(.account-link, .language-switch):hover {
+  background: #2d4834;
+}
+html[data-theme="dark"]
+  :is(
+    .brand small,
+    .workspace-label,
+    nav button,
+    nav button small,
+    .sidebar-bottom p,
+    .breadcrumb,
+    .eyebrow,
+    .stat em,
+    .stat p,
+    .source-pill,
+    .label,
+    .converter > .row label,
+    .tip-custom,
+    .calc-total,
+    .calc-total small,
+    .converted span,
+    .fineprint,
+    .ignite-promo .eyebrow,
+    .ignite-promo p,
+    .empty,
+    .soft-note,
+    .soft-note small,
+    footer,
+    .rate-guide p,
+    .rate-guide th,
+    .info-item > span,
+    .expense-summary > div > span,
+    .expense-summary small,
+    .expense-detail span,
+    .expense-detail small,
+    .expense-value small,
+    .weather-panel p,
+    .weather-panel h2 small,
+    .place-body > small,
+    .price small,
+    .muted,
+    .ignite-banner p,
+    .result-label,
+    .result-label small,
+    .session-desc,
+    .session-schedule,
+    .pagination,
+    .modal > p,
+    .photo-upload,
+    .detail-banner small,
+    .guide-list,
+    .meta-lines p,
+    .schedule-row
+  ) {
+  color: var(--muted);
+}
+html[data-theme="dark"]
+  :is(
+    .private,
+    .breadcrumb b,
+    .converted b,
+    .empty h3,
+    .price,
+    .forecast-strip b,
+    .meta-lines b,
+    .schedule-row b,
+    .session-venue,
+    .saved-fx,
+    .calc-total strong,
+    nav button.active small
+  ) {
+  color: #c2dec0;
+}
+html[data-theme="dark"] .description-full {
+  color: #c2d0c1 !important;
+}
+html[data-theme="dark"] .address-copy p {
+  color: var(--ink) !important;
+}
+html[data-theme="dark"] :is(.address-copy small, .history-table summary) {
+  color: #b8d5b5;
+}
+html[data-theme="dark"] :is(.text-link, .iconbutton) {
+  color: #b4d3aa;
+}
+html[data-theme="dark"] :is(.text-link:hover, .session-title:hover) {
+  color: #e0f3d9;
+}
+html[data-theme="dark"]
+  :is(
+    .iconbox,
+    .section-head .iconbox,
+    .profile > span,
+    .badge,
+    .ignite-promo .badge,
+    .session-instance-count,
+    .weather-advice,
+    .notice.neutral
+  ) {
+  background: #293e2e;
+  color: #bbd7af;
+  border-color: #42583d;
+}
+html[data-theme="dark"] .iconbox.amber {
+  background: #3b3222;
+  color: #ebc589;
+}
+html[data-theme="dark"] .iconbox.purple {
+  background: #332c41;
+  color: #d0bce7;
+}
+html[data-theme="dark"] .tags span {
+  border-color: var(--line);
+  color: #b8cdb1;
+}
+html[data-theme="dark"] .place-tag {
+  background: #17271de8;
+  color: #e0edda;
+}
+html[data-theme="dark"] .notice {
+  background: #362f20;
+  border-color: #665035;
+  color: #eccb94;
+}
+html[data-theme="dark"] .weather-panel svg {
+  color: #bfd4a2;
+}
+html[data-theme="dark"] .calc-total {
+  border-color: var(--line);
+}
+html[data-theme="dark"] .currency-sums {
+  border-color: var(--line);
+}
+html[data-theme="dark"] .danger:hover {
+  background: #482824;
+  color: #ffb4a6;
+}
+html[data-theme="dark"] .overlay {
+  background: #050b08b8;
+}
+html[data-theme="dark"] .modal {
+  box-shadow: 0 30px 100px #0008;
+}
+html[data-theme="dark"] .toast {
+  background: #d2e6cd;
+  color: #17271a;
+  border: 1px solid #a3c69c;
+}
+html[data-theme="dark"] .toast button {
+  color: #29492f;
+}
+html[data-theme="dark"] input::placeholder,
+html[data-theme="dark"] textarea::placeholder {
+  color: #8ea294;
+  opacity: 1;
+}
+html[data-theme="dark"] .hero {
+  background: #24382b;
+}
+html[data-theme="dark"] .hero > img {
+  filter: brightness(0.65) saturate(0.8);
+}
+html[data-theme="dark"] .hero:after {
+  background: linear-gradient(90deg, #24382b 28%, #24382bcc 48%, #24382b20 85%);
+}
+html[data-theme="dark"] .hero h2 {
+  color: #e4efdd;
+}
+html[data-theme="dark"] :is(.hero-tag, .hero p, .hero button) {
+  color: #c0d2b5;
+}
+html[data-theme="dark"] .hero button {
+  border-color: #b1ca9e;
+}
+html[data-theme="dark"] .hero-caption {
+  color: #e2ebd8;
+}
+html[data-theme="dark"] .clock-loading {
+  background: #24372c;
+}
+html[data-theme="dark"] .recharts-tooltip-label {
+  color: var(--ink);
+}
+@media (max-width: 680px) {
+  .header-actions {
+    gap: 5px;
+  }
+  .theme-switch {
+    width: 32px;
+    height: 32px;
+  }
+  html[data-theme="dark"] .sidebar {
+    background: #152019f5;
+  }
+  html[data-theme="dark"] nav button.active {
+    background: transparent;
+    color: #c4e4b8;
+  }
+  html[data-theme="dark"] nav button.active:before {
+    background: #b4d6a5;
+  }
+  html[data-theme="dark"] .hero:after {
+    background: linear-gradient(
+      90deg,
+      #24382b 5%,
+      #24382bd9 42%,
+      #24382b44 85%
+    );
+  }
+}

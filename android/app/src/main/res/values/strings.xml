@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">湾区随行</string>
+    <string name="title_activity_main">湾区随行</string>
+    <string name="package_name">com.heathhuang.sfotravel</string>
+    <string name="custom_url_scheme">com.heathhuang.sfotravel</string>
+</resources>

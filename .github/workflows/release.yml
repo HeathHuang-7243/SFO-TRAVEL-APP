@@ -1,0 +1,74 @@
+name: Signed Android release
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Verify release tag
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: node scripts/verify-release.mjs
+      - name: Check signing secrets
+        env:
+          SFO_KEYSTORE_BASE64: ${{ secrets.SFO_KEYSTORE_BASE64 }}
+          SFO_STORE_PASSWORD: ${{ secrets.SFO_STORE_PASSWORD }}
+          SFO_KEY_ALIAS: ${{ secrets.SFO_KEY_ALIAS }}
+          SFO_KEY_PASSWORD: ${{ secrets.SFO_KEY_PASSWORD }}
+        run: |
+          for name in SFO_KEYSTORE_BASE64 SFO_STORE_PASSWORD SFO_KEY_ALIAS SFO_KEY_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "Missing signing secret: $name. See docs/RELEASING.md."
+              exit 1
+            fi
+          done
+      - run: npm ci
+      - run: npm run check
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+      - run: npx cap sync android
+      - name: Build signed APK
+        working-directory: android
+        env:
+          SFO_KEYSTORE_BASE64: ${{ secrets.SFO_KEYSTORE_BASE64 }}
+          SFO_STORE_PASSWORD: ${{ secrets.SFO_STORE_PASSWORD }}
+          SFO_KEY_ALIAS: ${{ secrets.SFO_KEY_ALIAS }}
+          SFO_KEY_PASSWORD: ${{ secrets.SFO_KEY_PASSWORD }}
+        run: |
+          umask 077
+          export SFO_KEYSTORE_PATH="$RUNNER_TEMP/sfo-release.jks"
+          trap 'rm -f "$SFO_KEYSTORE_PATH"' EXIT
+          printf '%s' "$SFO_KEYSTORE_BASE64" | base64 --decode > "$SFO_KEYSTORE_PATH"
+          ./gradlew assembleRelease lintRelease --no-daemon
+      - name: Verify and prepare release files
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          mkdir release
+          cp android/app/build/outputs/apk/release/app-release.apk "release/SFO-TRAVEL-APP-$RELEASE_TAG.apk"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "release/SFO-TRAVEL-APP-$RELEASE_TAG.apk" > release/signature.txt
+          cd release
+          sha256sum *.apk > SHA256SUMS
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: gh release create "$RELEASE_TAG" release/* --verify-tag --title "SFO Travel $RELEASE_TAG" --generate-notes
