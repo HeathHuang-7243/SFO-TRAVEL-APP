@@ -14,6 +14,8 @@ capture_failure() {
 trap capture_failure ERR
 adb root
 adb wait-for-device
+adb shell settings put system screen_off_timeout 2147483647
+adb shell svc power stayon true
 adb shell settings put secure show_ime_with_hard_keyboard 0
 adb install "$baseline"
 adb shell am start -n "$package/.MainActivity"
