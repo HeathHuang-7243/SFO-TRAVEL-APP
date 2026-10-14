@@ -71,7 +71,8 @@ public class StorageStartupTest {
             db.setVersion(1);
         }
         launch();
-        assertEquals(0, query("SELECT * FROM local_chunks").length());
+        // Public data refreshes may already have populated unrelated cache keys.
+        assertEquals(0, query("SELECT * FROM local_chunks WHERE key='personal:v1'").length());
         assertEquals(PERSONAL, query("SELECT value FROM local_data WHERE key='personal:v1'").getJSONObject(0).getString("value"));
         reload();
         assertEquals(PERSONAL, query("SELECT value FROM local_data WHERE key='personal:v1'").getJSONObject(0).getString("value"));

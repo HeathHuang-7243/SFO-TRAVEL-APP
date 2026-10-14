@@ -8,9 +8,9 @@ GitHub → Actions → Android checks and debug APK → 最新成功运行 → A
 
 Debug 使用独立 `.debug` 包名。GitHub 运行器的 Debug 密钥可能每次改变，测试包之间不保证覆盖安装。卸载前先备份；日常使用应使用固定密钥签名的正式版。
 
-### 1.2.0 固定签名与应用内更新
+### 1.2.1 固定签名与应用内更新
 
-正式安装包名称为 `SFOBusinessTravel-v1.2.0.apk`，包名保持 `com.heathhuang.sfotravel`。设置中检查公开 GitHub Releases，下载到私有缓存，核验 SHA-256、包名、相同签名和递增版本后调用系统安装器。需用户确认，不会静默安装。
+正式安装包名称为 `SFOBusinessTravel-v1.2.1.apk`，包名保持 `com.heathhuang.sfotravel`。设置中检查公开 GitHub Releases，下载到私有缓存，核验 SHA-256、包名、相同签名和递增版本后调用系统安装器。需用户确认，不会静默安装。
 
 旧 `.debug` 测试版与正式版并存。先从测试版导出加密备份，在正式版恢复并核对账目和照片，再决定是否删除测试版；无需先卸载它。旧 Actions 临时签名的私钥不包含在 APK 中，无法从 APK 恢复，也不能用新密钥直接覆盖旧签名。
 
