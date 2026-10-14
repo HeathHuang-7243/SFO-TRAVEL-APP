@@ -193,6 +193,9 @@ html[data-theme="dark"] .app .app-tabs {
   display: grid;
   gap: 12px;
 }
+.settings-section.update-section {
+  border-bottom: 0;
+}
 .settings-section h3 {
   display: flex;
   align-items: center;
