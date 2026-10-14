@@ -164,14 +164,20 @@ public class StorageStartupTest {
     private void screenshot(String name) throws Exception {
         // Test-runner shell capture includes real system bars and survives APK teardown.
         assertTrue(name.matches("test-status-(dark|light)\\.png"));
+        shellOutput("screencap -p /sdcard/Download/" + name);
+        assertTrue("System screenshot was not created", shellOutput("ls /sdcard/Download/" + name).contains(name));
+    }
+
+    private String shellOutput(String command) throws Exception {
+        // UiAutomation starts the command directly; it does not interpret shell operators.
         android.os.ParcelFileDescriptor descriptor = InstrumentationRegistry.getInstrumentation().getUiAutomation()
-            .executeShellCommand("screencap -p /sdcard/Download/" + name + " && echo saved");
+            .executeShellCommand(command);
         try (InputStream input = new android.os.ParcelFileDescriptor.AutoCloseInputStream(descriptor)) {
             java.io.ByteArrayOutputStream result = new java.io.ByteArrayOutputStream();
             byte[] buffer = new byte[256];
             int count;
             while ((count = input.read(buffer)) != -1) result.write(buffer, 0, count);
-            assertTrue(result.toString(), result.toString().contains("saved"));
+            return result.toString();
         }
     }
 
