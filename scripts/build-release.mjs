@@ -3,7 +3,14 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 
-const bundle = JSON.parse(process.env.SFO_SIGNING_BUNDLE || "null");
+let bundle;
+try {
+  bundle = JSON.parse(process.env.SFO_SIGNING_BUNDLE || "null");
+} catch {
+  throw Error(
+    "SFO_SIGNING_BUNDLE must be valid JSON. Its contents are not logged.",
+  );
+}
 if (
   !bundle ||
   ["keystore", "storePassword", "keyAlias", "keyPassword"].some(
@@ -28,6 +35,7 @@ try {
       stdio: "inherit",
       env: {
         ...process.env,
+        SFO_SIGNING_BUNDLE: "",
         SFO_KEYSTORE_PATH: path,
         SFO_STORE_PASSWORD: bundle.storePassword,
         SFO_KEY_ALIAS: bundle.keyAlias,

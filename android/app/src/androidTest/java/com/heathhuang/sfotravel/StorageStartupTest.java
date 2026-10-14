@@ -171,9 +171,15 @@ public class StorageStartupTest {
             selectTheme("auto");
             awaitBars(true);
             evaluate("document.querySelector('.settings-footer button').click(); true");
-            scenario.moveToState(androidx.lifecycle.Lifecycle.State.CREATED);
+            // ActivityScenario's synthetic EmptyActivity is itself recreated by
+            // a system theme change, which can strand moveToState(RESUMED).
+            // Exercise real background/foreground behavior via the launcher.
+            shellOutput("input keyevent KEYCODE_HOME");
+            awaitLifecycle(androidx.lifecycle.Lifecycle.State.CREATED);
             shellOutput("cmd uimode night no");
-            scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED);
+            Context context = ApplicationProvider.getApplicationContext();
+            shellOutput("am start -W -n " + context.getPackageName() + "/com.heathhuang.sfotravel.MainActivity");
+            awaitLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED);
             awaitApp();
             awaitBars(false);
         } finally {
@@ -188,6 +194,15 @@ public class StorageStartupTest {
             SystemClock.sleep(100);
         }
         fail("System night mode did not change");
+    }
+
+    private void awaitLifecycle(androidx.lifecycle.Lifecycle.State state) {
+        long deadline = SystemClock.elapsedRealtime() + 15000;
+        while (SystemClock.elapsedRealtime() < deadline) {
+            if (scenario.getState() == state) return;
+            SystemClock.sleep(100);
+        }
+        fail("Activity did not reach " + state + "; current state=" + scenario.getState());
     }
 
     private void selectTheme(String mode) throws Exception {

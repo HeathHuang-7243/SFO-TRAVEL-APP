@@ -4,6 +4,7 @@ on:
     tags: ["v*"]
 permissions:
   contents: write
+  actions: read
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
@@ -82,6 +83,20 @@ jobs:
           emulator-boot-timeout: 300
           disable-animations: true
           script: bash scripts/test-upgrade.sh "$RUNNER_TEMP/sfo-upgrade-baseline.apk" android/app/build/outputs/apk/release/app-release.apk
+      - name: Require Android checks for this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          state=pending
+          for attempt in $(seq 1 60); do
+            state="$(gh run list --workflow android.yml --commit "$GITHUB_SHA" --branch main --event push --limit 1 --json status,conclusion --jq '.[0] | if .status == "completed" then .conclusion else "pending" end')"
+            case "$state" in
+              success) break ;;
+              failure|cancelled|timed_out|action_required|skipped|stale) echo "Android checks: $state"; exit 1 ;;
+            esac
+            sleep 15
+          done
+          test "$state" = success
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
