@@ -117,7 +117,7 @@ test("settings replace the breadcrumb and persist gallery choice and clock citie
     "content",
     "#152019",
   );
-  await settings.evaluate((element) => {
+  await settings.locator(".settings-content").evaluate((element) => {
     element.scrollTop = 0;
   });
   await page.screenshot({
@@ -129,14 +129,14 @@ test("settings replace the breadcrumb and persist gallery choice and clock citie
     "content",
     "#fbfcf9",
   );
-  await settings.evaluate((element) => {
+  await settings.locator(".settings-content").evaluate((element) => {
     element.scrollTop = 0;
   });
   await page.screenshot({
     path: "test-results/settings-light.png",
     animations: "disabled",
   });
-  await page.getByRole("button", { name: "关闭设置" }).click();
+  await settings.getByRole("button", { name: "确认", exact: true }).click();
   await expect(page.locator(".breadcrumb")).toHaveCount(0);
   await expect(
     page.getByRole("navigation", { name: "主要功能" }),

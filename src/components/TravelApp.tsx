@@ -899,7 +899,6 @@ export default function TravelApp() {
           </button>
           <div className="app-heading">
             <strong>{t("湾区随行")}</strong>
-            <small>{t(nav.find((n) => n.id === tab)?.name || "")}</small>
           </div>
           <div className="clocks">
             {selectedCities.map((city, index) => {
