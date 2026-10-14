@@ -18,7 +18,7 @@
 
 ## 开发
 
-需要 Node.js 22+、JDK 21、Android SDK 35。Android 最低 API 23，且设备 Android System WebView 必须支持现代 JavaScript（Chromium 109+）；建议 Android 10 或以上设备。
+需要 Node.js 22.13+、JDK 21、Android SDK 35。Android 最低 API 23，且设备 Android System WebView 必须支持现代 JavaScript（Chromium 109+）；建议 Android 10 或以上设备。
 
 ```sh
 npm ci

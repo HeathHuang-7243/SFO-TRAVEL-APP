@@ -1,5 +1,6 @@
 import { Capacitor } from "@capacitor/core";
 import { CapacitorSQLite, SQLiteConnection } from "@capacitor-community/sqlite";
+import { SQLITE_SCHEMA, sqliteKeyValue } from "./sqlite-kv";
 
 export interface KeyValue {
   get(key: string): Promise<string | null>;
@@ -21,26 +22,8 @@ async function openDriver(): Promise<KeyValue> {
       false,
     );
     await db.open();
-    await db.execute(
-      "CREATE TABLE IF NOT EXISTS local_data (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL);",
-    );
-    return {
-      async get(key) {
-        const r = await db.query("SELECT value FROM local_data WHERE key=?", [
-          key,
-        ]);
-        return r.values?.[0]?.value ?? null;
-      },
-      async set(key, value) {
-        await db.run(
-          "INSERT INTO local_data(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
-          [key, value],
-        );
-      },
-      async remove(key) {
-        await db.run("DELETE FROM local_data WHERE key=?", [key]);
-      },
-    };
+    await db.execute(SQLITE_SCHEMA);
+    return sqliteKeyValue(db);
   }
   // Browser preview only; Android always uses SQLite and never silently falls back.
   const db = await new Promise<IDBDatabase>((resolve, reject) => {

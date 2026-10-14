@@ -6,7 +6,7 @@
 
 ## 持久化
 
-安卓社区 SQLite 插件创建 `sfo_travel` 数据库。`local_data(key, value)` 保存版本化文档及缓存；`personal:v1` 是账目和收藏的单个原子快照。串行队列和单条 UPSERT 避免并发丢失或部分更新。限 10,000 笔账目及 10,000 个收藏，适用于个人差旅规模。
+安卓社区 SQLite 插件创建 `sfo_travel` 数据库。`local_chunks(key, part, value)` 分块保存版本化文档及缓存，单行不超过 256 KiB，避免 Android CursorWindow 限制；分块不会截断 emoji 的代理对。`personal:v1` 是账目及收藏的逻辑快照，所有分块在同一 SQLite 事务中提交。串行修改队列避免并发丢失。首版的 `local_data` 记录可无损读取，并在下次成功写入时升级。限 10,000 笔账目及 10,000 个收藏，适用于个人差旅规模。
 
 照片保存在 `Directory.Data/receipts/`，数据库仅保存引用。写账目失败清理新照片；删除数据库记录后清理照片。异常中断或删除失败可能留下不可见的孤立文件，不会让已删除记录重现。照片压至最长边 1,800 像素并转 JPEG。
 
