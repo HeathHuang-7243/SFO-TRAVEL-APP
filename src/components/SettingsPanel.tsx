@@ -221,7 +221,7 @@ export default function SettingsPanel({
             </p>
           </section>
           <UpdatePanel lang={lang} />
-          <button className="secondary" onClick={onAbout}>
+          <button className="secondary settings-about" onClick={onAbout}>
             {en ? "About this app · Introduction" : "关于应用 · 使用说明"}
           </button>
           {error && (
