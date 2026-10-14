@@ -189,9 +189,11 @@ public class StorageStartupTest {
     }
 
     private void awaitApp() throws Exception {
-        await("!!document.querySelector('.app main') || document.body.innerText.includes('Storage unavailable')");
-        assertEquals("App failed to initialize: " + evaluate("document.body.innerText"),
-            "true", evaluate("!!document.querySelector('.app main')"));
+        await("!!document.querySelector('.app main') || document.body.textContent.includes('Storage unavailable')");
+        // Only collect diagnostics on failure. innerText forces layout during cold WebView startup.
+        if (!"true".equals(evaluate("!!document.querySelector('.app main')"))) {
+            fail("App failed to initialize: " + evaluate("document.body.textContent"));
+        }
     }
 
     private JSONArray query(String sql) throws Exception {
@@ -220,7 +222,7 @@ public class StorageStartupTest {
             if ("true".equals(evaluate(predicate))) return;
             SystemClock.sleep(100);
         }
-        fail("Timed out: " + predicate + "; page=" + evaluate("document.body.innerText"));
+        fail("Timed out: " + predicate + "; page=" + evaluate("document.body.textContent"));
     }
 
     private String evaluate(String script) throws Exception {
@@ -230,7 +232,8 @@ public class StorageStartupTest {
             result.set(value);
             done.countDown();
         }));
-        assertTrue("WebView evaluation timed out", done.await(10, TimeUnit.SECONDS));
+        // Fresh hosted emulators can stall while Chromium and system services initialize.
+        assertTrue("WebView evaluation timed out: " + script, done.await(30, TimeUnit.SECONDS));
         return result.get();
     }
 }
