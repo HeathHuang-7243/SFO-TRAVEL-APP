@@ -12,8 +12,10 @@ capture_failure() {
 trap capture_failure ERR
 test "${GITHUB_ACTIONS:-}" = true
 test "$(adb shell getprop ro.kernel.qemu | tr -d '\r')" = 1
-adb root
+# adbd restarts during this command and can close the client connection.
+adb root || true
 adb wait-for-device
+test "$(adb shell id -u | tr -d '\r')" = 0
 test -z "$(adb shell pm path "$package" | tr -d '\r')"
 adb shell settings put system screen_off_timeout 2147483647
 adb shell svc power stayon true
