@@ -3,10 +3,8 @@ test.beforeEach(async ({ page }) => {
   // Make every public data request fail; bundled content and local writes must work.
   await page.route("https://**/*", (route) => route.abort());
   await page.goto("/");
-  await page.getByLabel("设置密码", { exact: true }).fill("test-password-123");
-  await page
-    .getByLabel("再次输入密码", { exact: true })
-    .fill("test-password-123");
+  await page.getByLabel("设置密码", { exact: true }).fill("2468");
+  await page.getByLabel("再次输入密码", { exact: true }).fill("2468");
   await page.getByRole("button", { name: "设置密码并继续" }).click();
   const welcome = page.getByRole("dialog", { name: "欢迎使用「湾区随行」" });
   await welcome.getByRole("checkbox", { name: "不再显示" }).check();
@@ -43,8 +41,10 @@ test("offline expenses and receipts survive restart; encrypted restore is idempo
   await page.getByRole("button", { name: "设置中心", exact: true }).click();
   await page.getByRole("button", { name: "本地备份", exact: true }).click();
   const backup = page.getByRole("dialog", { name: "本地数据与备份" });
-  await backup.getByLabel("备份密码（至少 8 位）").fill("test-password");
-  await backup.getByLabel("导出时再次输入密码").fill("test-password");
+  await backup.getByLabel("验证应用密码").fill("0000");
+  await backup.getByRole("button", { name: "导出加密完整备份" }).click();
+  await expect(backup.getByRole("status")).toContainText("密码不正确");
+  await backup.getByLabel("验证应用密码").fill("2468");
   const download = page.waitForEvent("download");
   await backup.getByRole("button", { name: "导出加密完整备份" }).click();
   const file = await download;
@@ -58,7 +58,7 @@ test("offline expenses and receipts survive restart; encrypted restore is idempo
   await expect(page.locator(".expense-row")).toHaveCount(0);
   await page.getByRole("button", { name: "设置中心", exact: true }).click();
   await page.getByRole("button", { name: "本地备份", exact: true }).click();
-  await backup.getByLabel("备份密码（至少 8 位）").fill("test-password");
+  await expect(backup.getByLabel("验证应用密码")).toHaveCount(0);
   await backup.getByLabel("选择本应用的备份文件").setInputFiles(path!);
   await backup.getByRole("button", { name: "合并恢复，保留已有记录" }).click();
   await expect(backup.getByRole("status")).toContainText("新增 1 笔");
@@ -79,7 +79,9 @@ test("catalogue favorites, language, theme and mobile layout persist", async ({
   await expect(bookmark).toBeVisible();
   await bookmark.click();
   // The icon changes only after the asynchronous local write succeeds.
-  await expect(page.getByRole("button", { name: "取消收藏", exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "取消收藏", exact: true }),
+  ).toBeVisible();
   await page.reload();
   await page.getByRole("button", { name: /Ignite 会议/ }).click();
   await page.getByRole("button", { name: "只看收藏" }).click();
@@ -322,26 +324,24 @@ test("update password gate preserves expenses on wrong passwords and supports pa
   await page.screenshot({
     path: "test-results/password-wrong-preserves-records.png",
   });
-  await page.getByLabel("密码", { exact: true }).fill("test-password-123");
+  await page.getByLabel("密码", { exact: true }).fill("2468");
   await page.getByRole("button", { name: "解锁并继续" }).click();
   await page.getByRole("button", { name: /旅行账本/ }).click();
   await expect(page.locator(".expense-row")).toContainText("密码升级保留测试");
   await page.getByRole("button", { name: "设置中心", exact: true }).click();
   await page.getByRole("button", { name: "修改密码", exact: true }).click();
-  await page.getByLabel("当前密码", { exact: true }).fill("test-password-123");
-  await page.getByLabel("新密码", { exact: true }).fill("updated-password-456");
-  await page
-    .getByLabel("再次输入新密码", { exact: true })
-    .fill("updated-password-456");
+  await page.getByLabel("当前密码", { exact: true }).fill("2468");
+  await page.getByLabel("新密码", { exact: true }).fill("9753");
+  await page.getByLabel("再次输入新密码", { exact: true }).fill("9753");
   await page.getByRole("button", { name: "保存新密码" }).click();
   await expect(page.locator(".password-settings [role=status]")).toContainText(
     "密码已修改",
   );
   await simulateUpdate();
-  await page.getByLabel("密码", { exact: true }).fill("test-password-123");
+  await page.getByLabel("密码", { exact: true }).fill("2468");
   await page.getByRole("button", { name: "解锁并继续" }).click();
   await expect(page.getByRole("alert")).toContainText("密码不正确");
-  await page.getByLabel("密码", { exact: true }).fill("updated-password-456");
+  await page.getByLabel("密码", { exact: true }).fill("9753");
   await page.getByRole("button", { name: "解锁并继续" }).click();
   await expect(page.locator(".app main")).toBeVisible();
   await page.reload();
@@ -349,4 +349,58 @@ test("update password gate preserves expenses on wrong passwords and supports pa
   await expect(page.locator(".access-form")).toHaveCount(0);
   await page.getByRole("button", { name: /旅行账本/ }).click();
   await expect(page.locator(".expense-row")).toContainText("密码升级保留测试");
+});
+
+test("one password exports backups and older passwords remain usable only for older files", async ({
+  page,
+}) => {
+  async function settings() {
+    await page.getByRole("button", { name: "设置中心", exact: true }).click();
+  }
+  async function openBackup() {
+    await settings();
+    await page.getByRole("button", { name: "本地备份", exact: true }).click();
+    return page.getByRole("dialog", { name: "本地数据与备份" });
+  }
+  let backup = await openBackup();
+  await expect(backup.locator('input[type="password"]')).toHaveCount(0);
+  const firstDownload = page.waitForEvent("download");
+  await backup.getByRole("button", { name: "导出加密完整备份" }).click();
+  const oldFile = await (await firstDownload).path();
+  await backup.getByRole("button", { name: "关闭", exact: true }).click();
+  await settings();
+  await page.getByRole("button", { name: "修改密码", exact: true }).click();
+  await page.getByLabel("当前密码", { exact: true }).fill("0000");
+  await page.getByLabel("新密码", { exact: true }).fill("9753");
+  await page.getByLabel("再次输入新密码", { exact: true }).fill("9753");
+  await page.getByRole("button", { name: "保存新密码" }).click();
+  await expect(page.getByRole("alert")).toContainText("密码不正确");
+  await page.getByLabel("当前密码", { exact: true }).fill("2468");
+  await page.getByRole("button", { name: "保存新密码" }).click();
+  await expect(page.locator(".password-settings [role=status]")).toContainText(
+    "密码已修改",
+  );
+  await page.getByRole("button", { name: "关闭设置", exact: true }).click();
+  backup = await openBackup();
+  await expect(backup.locator('input[type="password"]')).toHaveCount(0);
+  const nextDownload = page.waitForEvent("download");
+  await backup.getByRole("button", { name: "导出加密完整备份" }).click();
+  const newFile = await (await nextDownload).path();
+  await backup.getByLabel("选择本应用的备份文件").setInputFiles(oldFile!);
+  await backup.getByRole("button", { name: "合并恢复，保留已有记录" }).click();
+  await expect(backup.getByRole("status")).toContainText(
+    "当前应用密码无法打开",
+  );
+  await backup.getByLabel("使用旧备份的密码", { exact: true }).check();
+  await backup.getByLabel("旧备份密码", { exact: true }).fill("2468");
+  await backup.getByRole("button", { name: "合并恢复，保留已有记录" }).click();
+  await expect(backup.getByRole("status")).toContainText("恢复完成");
+  await backup.getByLabel("使用旧备份的密码", { exact: true }).uncheck();
+  await backup.getByLabel("选择本应用的备份文件").setInputFiles(newFile!);
+  await backup.getByRole("button", { name: "合并恢复，保留已有记录" }).click();
+  await expect(backup.getByRole("status")).toContainText("恢复完成");
+  await page.screenshot({
+    path: "test-results/unified-password-backup.png",
+    fullPage: true,
+  });
 });

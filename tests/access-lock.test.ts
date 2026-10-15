@@ -110,3 +110,51 @@ describe("update password gate", () => {
     expect(JSON.parse(f.raw()!).failures).toBe(0);
   });
 });
+
+describe("shared unlock and backup password", () => {
+  it("accepts 4 and 128 characters, rejects 3 and 129 without changing metadata", async () => {
+    const f = fixture(),
+      lock = new PasswordLock(f.store, async () => "1");
+    for (const password of ["123", "x".repeat(129)]) {
+      await expect(lock.setup(password)).rejects.toMatchObject({
+        code: "length",
+      });
+      expect(f.raw()).toBeNull();
+    }
+    await lock.setup("2468");
+    expect(await lock.backupPassword()).toBe("2468");
+    const before = f.raw();
+    await expect(lock.change("2468", "123")).rejects.toMatchObject({
+      code: "length",
+    });
+    expect(f.raw()).toBe(before);
+    await lock.change("2468", "x".repeat(128));
+    expect(await lock.backupPassword()).toBe("x".repeat(128));
+    expect(f.raw()).not.toContain("x".repeat(128));
+  });
+  it("requires the existing password after restart, updates the session on change, and rejects stale sessions", async () => {
+    const f = fixture(),
+      original = new PasswordLock(f.store, async () => "1");
+    await original.setup("2468");
+    const restarted = new PasswordLock(f.store, async () => "1");
+    expect(await restarted.state()).toBe("unlocked");
+    expect(restarted.hasSessionPassword()).toBe(false);
+    await expect(restarted.backupPassword("0000")).rejects.toMatchObject({
+      code: "incorrect",
+    });
+    expect(await restarted.backupPassword("2468")).toBe("2468");
+    await restarted.change("2468", "9753");
+    expect(await restarted.backupPassword()).toBe("9753");
+    await expect(original.backupPassword()).rejects.toMatchObject({
+      code: "incorrect",
+    });
+    expect(original.hasSessionPassword()).toBe(false);
+    const upgraded = new PasswordLock(f.store, async () => "2");
+    await expect(upgraded.backupPassword("9753")).rejects.toMatchObject({
+      code: "invalid",
+    });
+    expect(await upgraded.state()).toBe("locked");
+    await upgraded.unlock("9753");
+    expect(await upgraded.backupPassword()).toBe("9753");
+  });
+});

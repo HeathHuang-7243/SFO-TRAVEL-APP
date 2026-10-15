@@ -6,7 +6,7 @@ import sys
 import time
 import xml.etree.ElementTree as ET
 
-PASSWORD = "test-password-123"  # Synthetic CI fixture only.
+PASSWORD = "2468"  # Synthetic CI fixture only.
 
 
 def adb(*args):

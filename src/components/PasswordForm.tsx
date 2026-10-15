@@ -85,7 +85,7 @@ export default function PasswordForm({
                 autoComplete="new-password"
                 value={next}
                 onChange={(e) => setNext(e.target.value)}
-                minLength={8}
+                minLength={4}
                 maxLength={128}
                 required
               />
@@ -104,15 +104,15 @@ export default function PasswordForm({
                 autoComplete="new-password"
                 value={repeat}
                 onChange={(e) => setRepeat(e.target.value)}
-                minLength={8}
+                minLength={4}
                 maxLength={128}
                 required
               />
             </label>
             <p className="fineprint">
               {en
-                ? "Use 8–128 characters. Keep this password safe; it cannot be recovered online. This is separate from your backup password."
-                : "请设置 8–128 个字符的密码并妥善保管，无法在线找回。它与导出备份时使用的密码相互独立。"}
+                ? "Use 4–128 characters. This password also encrypts new backups. Keep it safe; it cannot be recovered online."
+                : "请设置 4–128 个字符的密码，同时用于应用解锁和新备份加密。请妥善保管，无法在线找回。"}
             </p>
           </>
         )}

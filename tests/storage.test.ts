@@ -117,6 +117,16 @@ describe("local personal records", () => {
   });
 });
 describe("portable encrypted backup", () => {
+  it("round-trips 4 and 128 character passwords and rejects invalid new backup lengths", async () => {
+    const data = await setup().repo.backup();
+    for (const password of ["2468", "x".repeat(128)]) {
+      expect(
+        await decryptBackup(await encryptBackup(data, password), password),
+      ).toEqual(data);
+    }
+    for (const password of ["123", "x".repeat(129)])
+      await expect(encryptBackup(data, password)).rejects.toThrow("4–128");
+  });
   it("round-trips receipts and favorites and merges idempotently", async () => {
     const a = setup(),
       b = setup();

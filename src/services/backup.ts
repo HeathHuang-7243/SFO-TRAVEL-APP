@@ -11,8 +11,6 @@ function bytes(s: string) {
   return Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 }
 async function key(password: string, salt: Uint8Array, usage: KeyUsage[]) {
-  if (password.length < 8)
-    throw Error("备份密码至少 8 位 / Use at least 8 characters");
   const material = await crypto.subtle.importKey(
     "raw",
     new TextEncoder().encode(password),
@@ -34,6 +32,8 @@ async function key(password: string, salt: Uint8Array, usage: KeyUsage[]) {
   );
 }
 export async function encryptBackup(backup: Backup, password: string) {
+  if (password.length < 4 || password.length > 128)
+    throw Error("密码需要 4–128 个字符 / Use 4–128 characters");
   const plain = new TextEncoder().encode(
     JSON.stringify(validateBackup(backup)),
   );

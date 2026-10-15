@@ -103,6 +103,11 @@ function parse(raw: string): RecordData {
   }
 }
 export class PasswordLock {
+  // Only retained in this WebView session; never written to device storage.
+  private sessionPassword: string | null = null;
+  hasSessionPassword() {
+    return this.sessionPassword !== null;
+  }
   private queue: Promise<unknown> = Promise.resolve();
   constructor(
     private storage: AccessStore,
@@ -123,7 +128,7 @@ export class PasswordLock {
         : "locked";
   }
   private async record(password: string): Promise<RecordData> {
-    if (password.length < 8 || password.length > 128)
+    if (password.length < 4 || password.length > 128)
       throw new AccessError("length");
     const salt = crypto.getRandomValues(new Uint8Array(16));
     return {
@@ -143,6 +148,7 @@ export class PasswordLock {
         null,
         JSON.stringify(await this.record(password)),
       );
+      this.sessionPassword = password;
     });
   }
   private async verify(password: string) {
@@ -190,13 +196,36 @@ export class PasswordLock {
           retryAt: 0,
         }),
       );
+      this.sessionPassword = password;
+    });
+  }
+  // Revalidate against current metadata so stale sessions cannot export with an old password.
+  backupPassword(password?: string): Promise<string> {
+    return this.exclusive(async () => {
+      const candidate = password ?? this.sessionPassword;
+      if (candidate === null) throw new AccessError("incorrect");
+      try {
+        const { raw, record } = await this.verify(candidate);
+        if (record.approvedVersion !== (await this.version()))
+          throw new AccessError("invalid");
+        await this.storage.replace(
+          raw,
+          JSON.stringify({ ...record, failures: 0, retryAt: 0 }),
+        );
+        this.sessionPassword = candidate;
+        return candidate;
+      } catch (error) {
+        this.sessionPassword = null;
+        throw error;
+      }
     });
   }
   change(current: string, next: string) {
     return this.exclusive(async () => {
-      if (next.length < 8 || next.length > 128) throw new AccessError("length");
+      if (next.length < 4 || next.length > 128) throw new AccessError("length");
       const { raw } = await this.verify(current);
       await this.storage.replace(raw, JSON.stringify(await this.record(next)));
+      this.sessionPassword = next;
     });
   }
 }
@@ -215,7 +244,7 @@ export function accessMessage(error: unknown, en: boolean) {
       ? "Too many attempts. Wait 30 seconds and retry. Your records are still here."
       : "尝试次数较多，请等待 30 秒后重试。记录仍保留在本机。";
   if (code === "length")
-    return en ? "Use 8–128 characters." : "密码需要 8–128 个字符。";
+    return en ? "Use 4–128 characters." : "密码需要 4–128 个字符。";
   return en
     ? "Could not read or save the password settings. Retry without uninstalling or clearing app data; your records have not been reset."
     : "无法读取或保存密码设置，请重试。不要卸载或清除应用数据，已有记录未被重置。";

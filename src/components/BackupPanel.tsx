@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 import { getRepository } from "../storage/repository";
 import { encryptBackup, decryptBackup } from "../services/backup";
+import {
+  accessLock,
+  accessMessage,
+  AccessError,
+} from "../services/access-lock";
 import { exportFile } from "../services/device";
 import type { Language } from "../lib/i18n";
 export default function BackupPanel({
@@ -14,7 +19,11 @@ export default function BackupPanel({
 }) {
   const say = (zh: string, en: string) => (lang === "en" ? en : zh);
   const [password, setPassword] = useState(""),
-    [repeat, setRepeat] = useState(""),
+    [needsPassword, setNeedsPassword] = useState(
+      () => !accessLock.hasSessionPassword(),
+    ),
+    [useHistorical, setUseHistorical] = useState(false),
+    [historicalPassword, setHistoricalPassword] = useState(""),
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState(""),
     [file, setFile] = useState<File | null>(null);
@@ -25,14 +34,31 @@ export default function BackupPanel({
     window.addEventListener("sfo-backup-back", back);
     return () => window.removeEventListener("sfo-backup-back", back);
   }, [busy, onClose]);
+  async function currentPassword() {
+    const value = await accessLock.backupPassword(
+      needsPassword ? password : undefined,
+    );
+    setNeedsPassword(false);
+    setPassword("");
+    return value;
+  }
+  const canVerify =
+    !needsPassword || (password.length >= 4 && password.length <= 128);
   async function run(job: () => Promise<string>) {
     setBusy(true);
     setMessage("");
     try {
       setMessage(await job());
     } catch (e) {
-      setMessage(e instanceof Error ? e.message : String(e));
+      setMessage(
+        e instanceof AccessError
+          ? accessMessage(e, lang === "en")
+          : e instanceof Error
+            ? e.message
+            : String(e),
+      );
     } finally {
+      setNeedsPassword(!accessLock.hasSessionPassword());
       setBusy(false);
     }
   }
@@ -57,34 +83,41 @@ export default function BackupPanel({
             "Expenses, favorites and receipts stay on this device. Nothing is uploaded to GitHub or the original website. Uninstalling or clearing app data deletes these records. Export backups regularly.",
           )}
         </p>
-        <label className="label">
-          {say("备份密码（至少 8 位）", "Backup password (8+ characters)")}
-          <input
-            type="password"
-            autoComplete="new-password"
-            value={password}
-            disabled={busy}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </label>
-        <label className="label">
-          {say("导出时再次输入密码", "Confirm password for export")}
-          <input
-            type="password"
-            autoComplete="new-password"
-            value={repeat}
-            disabled={busy}
-            onChange={(e) => setRepeat(e.target.value)}
-          />
-        </label>
+        <p>
+          {say(
+            "备份自动使用你的应用解锁密码，无需另外设置。",
+            "Backups use your app unlock password. No separate password is needed.",
+          )}
+        </p>
+        {needsPassword && (
+          <label className="label">
+            {say("验证应用密码", "Verify app password")}
+            <input
+              type="password"
+              autoComplete="current-password"
+              minLength={4}
+              maxLength={128}
+              value={password}
+              disabled={busy}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <span className="fineprint">
+              {say(
+                "本次打开尚未输入密码，备份前验证一次即可。",
+                "Confirm your existing password once for backups in this session.",
+              )}
+            </span>
+          </label>
+        )}
         <button
           className="primary full"
-          disabled={busy || password.length < 8 || password !== repeat}
+          disabled={busy || !canVerify}
           onClick={() =>
             run(async () => {
+              const verifiedPassword = await currentPassword();
               const text = await encryptBackup(
                 await (await getRepository()).backup(),
-                password,
+                verifiedPassword,
               );
               await exportFile(
                 "sfo-travel-" +
@@ -113,17 +146,68 @@ export default function BackupPanel({
             type="file"
             accept=".json,.sfo-backup,application/json,application/octet-stream"
             disabled={busy}
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            onChange={(e) => {
+              setFile(e.target.files?.[0] ?? null);
+              setHistoricalPassword("");
+              setMessage("");
+            }}
           />
         </label>
+        <label className="access-show">
+          <input
+            type="checkbox"
+            checked={useHistorical}
+            disabled={busy}
+            onChange={(e) => {
+              setUseHistorical(e.target.checked);
+              setHistoricalPassword("");
+              setMessage("");
+            }}
+          />
+          {say("使用旧备份的密码", "Use the password of an older backup")}
+        </label>
+        {useHistorical && (
+          <label className="label">
+            {say("旧备份密码", "Older backup password")}
+            <input
+              type="password"
+              autoComplete="off"
+              value={historicalPassword}
+              disabled={busy}
+              onChange={(e) => setHistoricalPassword(e.target.value)}
+            />
+          </label>
+        )}
+        <p className="fineprint">
+          {say(
+            "默认使用当前应用密码恢复。修改密码之前或旧版本导出的备份，需要使用创建时的密码；此选项不会修改应用密码。",
+            "Restore with your current app password by default. Backups made before a password change or in older versions need their original password; this option does not change your app password.",
+          )}
+        </p>
         <button
           className="secondary full"
-          disabled={busy || !file || password.length < 8}
+          disabled={
+            busy || !file || (useHistorical ? !historicalPassword : !canVerify)
+          }
           onClick={() =>
             run(async () => {
               if (!file || file.size > 100 * 1024 * 1024)
                 throw Error(say("文件超过 100 MB", "File exceeds 100 MB"));
-              const backup = await decryptBackup(await file.text(), password);
+              const restorePassword = useHistorical
+                ? historicalPassword
+                : await currentPassword();
+              const backup = await decryptBackup(
+                await file.text(),
+                restorePassword,
+              ).catch((error: Error) => {
+                if (useHistorical) throw error;
+                throw Error(
+                  say(
+                    "当前应用密码无法打开此备份，或文件已损坏。如果是旧备份，请选择“使用旧备份的密码”。",
+                    "The current app password could not open this backup, or the file is damaged. For an older backup, choose its original password below.",
+                  ),
+                );
+              });
               const result = await (await getRepository()).restore(backup);
               onRestore();
               return say(

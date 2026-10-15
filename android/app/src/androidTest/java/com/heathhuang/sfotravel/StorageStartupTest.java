@@ -37,7 +37,7 @@ import org.junit.runner.RunWith;
 public class StorageStartupTest {
     private static final String DB_FILE = "sfo_travelSQLite.db";
     private static final String PERSONAL = "{\"version\":1,\"expenses\":[],\"favorites\":[\"native-test\"]}";
-    private static final String TEST_PASSWORD = "test-password-123";
+    private static final String TEST_PASSWORD = "2468";
     private ActivityScenario<MainActivity> scenario;
 
     @Before public void resetTestDatabase() {

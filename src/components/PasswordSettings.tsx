@@ -15,8 +15,8 @@ export default function PasswordSettings({ lang }: { lang: Language }) {
       </h3>
       <p className="fineprint">
         {en
-          ? "Required after app updates. Incorrect passwords keep the app locked and never delete your records."
-          : "应用更新后需要输入密码。输错密码只会保持锁定，不会删除记录。"}
+          ? "One password for unlocking and new backups, 4–128 characters. Changing it requires the old password. Existing backup files still need the password used when they were created."
+          : "应用解锁与新备份使用同一个密码，支持 4–128 位。修改时需验证旧密码；已经导出的备份仍需使用创建时的密码。"}
       </p>
       {editing ? (
         <PasswordForm
@@ -42,8 +42,8 @@ export default function PasswordSettings({ lang }: { lang: Language }) {
       {saved && (
         <p role="status">
           {en
-            ? "Password changed. Use the new password after future updates."
-            : "密码已修改，下次更新后请使用新密码。"}
+            ? "Password changed. Future unlocks and new backups use the new password. Existing backups are unchanged."
+            : "密码已修改，后续解锁和新备份使用新密码。已经导出的备份不受影响。"}
         </p>
       )}
     </section>
