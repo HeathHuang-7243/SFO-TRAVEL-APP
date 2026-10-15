@@ -11,19 +11,23 @@ import {
 } from "../src/lib/city-clocks";
 
 afterEach(() => vi.unstubAllGlobals());
-it("defaults to private photos and recovers invalid clock preferences", () => {
+it("defaults to gallery copies and recovers invalid clock preferences", () => {
   vi.stubGlobal("localStorage", {
     getItem: () =>
       '{"saveToGallery":"true","cities":["London","invalid","Tokyo"]}',
   });
   expect(readPreferences()).toEqual({
-    saveToGallery: false,
+    saveToGallery: true,
     cities: ["London", "Berlin", "Tokyo"],
   });
+  vi.stubGlobal("localStorage", { getItem: () => null });
+  expect(readPreferences()).toEqual(defaultPreferences);
+  vi.stubGlobal("localStorage", { getItem: () => '{"cities":["London"]}' });
+  expect(readPreferences().saveToGallery).toBe(true);
   vi.stubGlobal("localStorage", { getItem: () => "broken" });
   expect(readPreferences()).toEqual(defaultPreferences);
 });
-it("persists opt-in and city changes and reports a failed settings write", () => {
+it("persists opt-out and city changes and reports a failed settings write", () => {
   let value = "";
   vi.stubGlobal("localStorage", {
     getItem: () => value,
@@ -32,7 +36,7 @@ it("persists opt-in and city changes and reports a failed settings write", () =>
     },
   });
   const p = {
-    saveToGallery: true,
+    saveToGallery: false,
     cities: ["San Francisco", "Paris", "Beijing"],
   };
   writePreferences(p);

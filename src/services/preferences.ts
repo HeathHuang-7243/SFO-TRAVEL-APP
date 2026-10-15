@@ -2,7 +2,7 @@ import { availableCities, clockCities } from "../lib/city-clocks";
 
 export type Preferences = { saveToGallery: boolean; cities: string[] };
 export const defaultPreferences: Preferences = {
-  saveToGallery: false,
+  saveToGallery: true,
   cities: clockCities.map((city) => city.en),
 };
 const key = "sfo-preferences:v1";
@@ -10,7 +10,10 @@ export function readPreferences(): Preferences {
   try {
     const p = JSON.parse(localStorage.getItem(key) || "null");
     return {
-      saveToGallery: p?.saveToGallery === true,
+      saveToGallery:
+        typeof p?.saveToGallery === "boolean"
+          ? p.saveToGallery
+          : defaultPreferences.saveToGallery,
       cities: defaultPreferences.cities.map((fallback, index) =>
         availableCities.some((city) => city.en === p?.cities?.[index])
           ? p.cities[index]

@@ -41,6 +41,10 @@ test("offline expenses and receipts survive restart; encrypted restore is idempo
   await page.getByRole("button", { name: "设置中心", exact: true }).click();
   await page.getByRole("button", { name: "本地备份", exact: true }).click();
   const backup = page.getByRole("dialog", { name: "本地数据与备份" });
+  await expect(backup.getByLabel("验证应用密码")).toHaveAttribute(
+    "inputmode",
+    "numeric",
+  );
   await backup.getByLabel("验证应用密码").fill("0000");
   await backup.getByRole("button", { name: "导出加密完整备份" }).click();
   await expect(backup.getByRole("status")).toContainText("密码不正确");
@@ -111,8 +115,8 @@ test("settings replace the breadcrumb and persist gallery choice and clock citie
 }) => {
   await page.getByRole("button", { name: "设置中心", exact: true }).click();
   const settings = page.getByRole("dialog", { name: "设置中心" });
-  await expect(settings.getByRole("switch")).not.toBeChecked();
-  await settings.getByRole("switch").check();
+  await expect(settings.getByRole("switch")).toBeChecked();
+  await settings.getByRole("switch").uncheck();
   await settings.getByLabel("时钟城市 2").selectOption("London");
   await settings.getByLabel("时钟城市 3").selectOption("Tokyo");
   await page.keyboard.press("Escape");
@@ -122,8 +126,8 @@ test("settings replace the breadcrumb and persist gallery choice and clock citie
   await page.reload();
   await expect(page.locator(".clocks")).toContainText("伦敦");
   await page.getByRole("button", { name: "设置中心", exact: true }).click();
-  await expect(settings.getByRole("switch")).toBeChecked();
-  await settings.getByRole("switch").uncheck();
+  await expect(settings.getByRole("switch")).not.toBeChecked();
+  await settings.getByRole("switch").check();
   await settings.getByRole("radio", { name: "深色", exact: true }).click();
   await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute(
     "content",
@@ -331,8 +335,20 @@ test("update password gate preserves expenses on wrong passwords and supports pa
   await page.getByRole("button", { name: "设置中心", exact: true }).click();
   await page.getByRole("button", { name: "修改密码", exact: true }).click();
   await page.getByLabel("当前密码", { exact: true }).fill("2468");
-  await page.getByLabel("新密码", { exact: true }).fill("9753");
-  await page.getByLabel("再次输入新密码", { exact: true }).fill("9753");
+  await expect(page.getByLabel("新密码", { exact: true })).toHaveAttribute(
+    "inputmode",
+    "numeric",
+  );
+  await page.getByRole("checkbox", { name: "字母 / 符号键盘" }).check();
+  await expect(page.getByLabel("新密码", { exact: true })).toHaveAttribute(
+    "inputmode",
+    "text",
+  );
+  await expect(page.getByLabel("当前密码", { exact: true })).toHaveValue(
+    "2468",
+  );
+  await page.getByLabel("新密码", { exact: true }).fill("Ab09!");
+  await page.getByLabel("再次输入新密码", { exact: true }).fill("Ab09!");
   await page.getByRole("button", { name: "保存新密码" }).click();
   await expect(page.locator(".password-settings [role=status]")).toContainText(
     "密码已修改",
@@ -341,7 +357,12 @@ test("update password gate preserves expenses on wrong passwords and supports pa
   await page.getByLabel("密码", { exact: true }).fill("2468");
   await page.getByRole("button", { name: "解锁并继续" }).click();
   await expect(page.getByRole("alert")).toContainText("密码不正确");
-  await page.getByLabel("密码", { exact: true }).fill("9753");
+  await expect(page.getByLabel("密码", { exact: true })).toHaveAttribute(
+    "inputmode",
+    "numeric",
+  );
+  await page.getByRole("checkbox", { name: "字母 / 符号键盘" }).check();
+  await page.getByLabel("密码", { exact: true }).fill("Ab09!");
   await page.getByRole("button", { name: "解锁并继续" }).click();
   await expect(page.locator(".app main")).toBeVisible();
   await page.reload();

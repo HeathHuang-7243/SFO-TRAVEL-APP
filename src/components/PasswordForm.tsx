@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { accessLock, accessMessage } from "../services/access-lock";
+import PasswordKeyboardChoice from "./PasswordKeyboardChoice";
 
 export default function PasswordForm({
   mode,
@@ -16,6 +17,7 @@ export default function PasswordForm({
   const [next, setNext] = useState("");
   const [repeat, setRepeat] = useState("");
   const [visible, setVisible] = useState(false);
+  const [textKeyboard, setTextKeyboard] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<
     { mismatch: true } | { failure: unknown } | null
@@ -63,6 +65,7 @@ export default function PasswordForm({
             <input
               id="access-current-password"
               type={visible ? "text" : "password"}
+              inputMode={textKeyboard ? "text" : "numeric"}
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -84,6 +87,7 @@ export default function PasswordForm({
               <input
                 id="access-new-password"
                 type={visible ? "text" : "password"}
+                inputMode={textKeyboard ? "text" : "numeric"}
                 autoComplete="new-password"
                 value={next}
                 onChange={(e) => setNext(e.target.value)}
@@ -103,6 +107,7 @@ export default function PasswordForm({
               <input
                 id="access-repeat-password"
                 type={visible ? "text" : "password"}
+                inputMode={textKeyboard ? "text" : "numeric"}
                 autoComplete="new-password"
                 value={repeat}
                 onChange={(e) => setRepeat(e.target.value)}
@@ -126,6 +131,11 @@ export default function PasswordForm({
           />
           {en ? "Show password" : "显示密码"}
         </label>
+        <PasswordKeyboardChoice
+          en={en}
+          textKeyboard={textKeyboard}
+          onChange={setTextKeyboard}
+        />
         {error && (
           <p className="notice" role="alert">
             {"mismatch" in error

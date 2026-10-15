@@ -12,8 +12,10 @@ capture_failure() {
   adb logcat -d -t 1200 > test-results/upgrade/logcat.txt || true
 }
 trap capture_failure ERR
-adb root
+# adbd may close the client connection while restarting as root.
+adb root || true
 adb wait-for-device
+test "$(adb shell id -u | tr -d '\r')" = 0
 adb shell settings put system screen_off_timeout 2147483647
 adb shell svc power stayon true
 adb shell settings put secure show_ime_with_hard_keyboard 0

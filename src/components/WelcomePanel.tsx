@@ -79,8 +79,8 @@ export default function WelcomePanel({ onClose }: { onClose: () => void }) {
           </h3>
           <p>
             {en
-              ? "Expenses, favorites and receipts are stored in the app’s private storage by default, without being uploaded to GitHub or our servers. If you enable gallery saving, photos are also copied to your system gallery and may be synced by your gallery’s cloud settings."
-              : "账目、收藏和凭证默认保存在应用的私有存储空间，不上传到 GitHub 或我们的服务器。开启“保存到相册”后，照片会额外存入系统相册，可能受相册云同步设置影响。"}
+              ? "Expenses, favorites and receipts stay in the app’s private storage and are not uploaded to GitHub or our servers. Saving receipt copies to your gallery is on by default for new settings; you can turn it off in Settings, and existing choices are kept. Gallery copies may be synced by your gallery’s cloud settings."
+              : "账目、收藏和凭证保存在应用的私有存储空间，不上传到 GitHub 或我们的服务器。首次使用默认同时保存凭证到系统相册，可在设置中关闭；已有选择保持不变。相册副本可能受相册云同步设置影响。"}
           </p>
           <p>
             {en

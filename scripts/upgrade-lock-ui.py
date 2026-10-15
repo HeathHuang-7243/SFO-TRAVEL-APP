@@ -56,8 +56,11 @@ def tap(node):
 
 
 def fill(index, password):
+    # WebView may report input bounds behind the previous field's keyboard.
+    hide_keyboard()
     node = wait_for(lambda n: n.get("field-index") == str(index), scroll=True)
     tap(node)
+    wait_for(lambda n: n.get("field-index") == str(index) and n.get("focused") == "true")
     adb("shell", "input", "text", password)
 
 

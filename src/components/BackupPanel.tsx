@@ -8,6 +8,7 @@ import {
 } from "../services/access-lock";
 import { exportFile } from "../services/device";
 import type { Language } from "../lib/i18n";
+import PasswordKeyboardChoice from "./PasswordKeyboardChoice";
 export default function BackupPanel({
   lang,
   onClose,
@@ -18,6 +19,7 @@ export default function BackupPanel({
   onRestore: () => void;
 }) {
   const say = (zh: string, en: string) => (lang === "en" ? en : zh);
+  const [textKeyboard, setTextKeyboard] = useState(false);
   const [password, setPassword] = useState(""),
     [needsPassword, setNeedsPassword] = useState(
       () => !accessLock.hasSessionPassword(),
@@ -89,11 +91,20 @@ export default function BackupPanel({
             "Backups use your app unlock password. No separate password is needed.",
           )}
         </p>
+        {(needsPassword || useHistorical) && (
+          <PasswordKeyboardChoice
+            en={lang === "en"}
+            textKeyboard={textKeyboard}
+            onChange={setTextKeyboard}
+            disabled={busy}
+          />
+        )}
         {needsPassword && (
           <label className="label">
             {say("验证应用密码", "Verify app password")}
             <input
               type="password"
+              inputMode={textKeyboard ? "text" : "numeric"}
               autoComplete="current-password"
               minLength={4}
               maxLength={128}
@@ -171,6 +182,7 @@ export default function BackupPanel({
             {say("旧备份密码", "Older backup password")}
             <input
               type="password"
+              inputMode={textKeyboard ? "text" : "numeric"}
               autoComplete="off"
               value={historicalPassword}
               disabled={busy}
