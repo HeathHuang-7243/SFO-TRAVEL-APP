@@ -61,7 +61,22 @@ def fill(index, password):
     adb("shell", "input", "text", password)
 
 
+def hide_keyboard():
+    # WebView accessibility bounds can extend behind the IME on Android 35.
+    # Dismiss it only when shown, so BACK cannot accidentally close the app.
+    def shown():
+        return re.search(r"\b(?:mInputShown|isInputViewShown)=true\b", adb("shell", "dumpsys", "input_method")) is not None
+    if shown():
+        adb("shell", "input", "keyevent", "KEYCODE_BACK")
+        deadline = time.monotonic() + 10
+        while shown():
+            if time.monotonic() >= deadline:
+                raise RuntimeError("Soft keyboard did not dismiss before submitting")
+            time.sleep(0.2)
+
+
 def submit(setup=False):
+    hide_keyboard()
     labels = ("设置密码并继续", "Set password and continue") if setup else ("解锁并继续", "Unlock and continue")
     tap(wait_for(lambda n: any(n.get("text") == label or n.get("content-desc") == label for label in labels), scroll=True))
 
