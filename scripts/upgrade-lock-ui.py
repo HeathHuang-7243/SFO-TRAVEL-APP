@@ -56,8 +56,12 @@ def tap(node):
 
 
 def fill(index, password):
+    # A previous field can leave the next field behind the software keyboard.
+    # WebView still reports bounds there, so dismiss the IME before locating it.
+    hide_keyboard()
     node = wait_for(lambda n: n.get("field-index") == str(index), scroll=True)
     tap(node)
+    wait_for(lambda n: n.get("field-index") == str(index) and n.get("focused") == "true")
     adb("shell", "input", "text", password)
 
 
