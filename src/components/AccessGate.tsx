@@ -6,25 +6,22 @@ import {
   type AccessState,
 } from "../services/access-lock";
 import PasswordForm from "./PasswordForm";
+import LanguageSwitch from "./LanguageSwitch";
+import { useLanguage } from "./LanguageProvider";
 
 export default function AccessGate({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AccessState | "loading" | "error">(
     "loading",
   );
-  const [error, setError] = useState("");
-  const [en] = useState(() => {
-    try {
-      const saved = localStorage.getItem("bay-language");
-      if (saved) return saved === "en";
-    } catch {}
-    return !navigator.language.startsWith("zh");
-  });
+  const [error, setError] = useState<unknown>(null);
+  const { lang } = useLanguage();
+  const en = lang === "en";
   async function load() {
     setState("loading");
     try {
       setState(await accessLock.state());
     } catch (failure) {
-      setError(accessMessage(failure, en));
+      setError(failure);
       setState("error");
     }
   }
@@ -35,7 +32,10 @@ export default function AccessGate({ children }: { children: ReactNode }) {
   return (
     <div className="access-screen">
       <main className="access-card">
-        <LockKeyhole className="access-icon" size={28} aria-hidden="true" />
+        <div className="access-toolbar">
+          <LockKeyhole className="access-icon" size={28} aria-hidden="true" />
+          <LanguageSwitch />
+        </div>
         <span className="eyebrow">
           {en ? "BAY COMPANION · ON YOUR DEVICE" : "湾区随行 · 本机保护"}
         </span>
@@ -92,7 +92,7 @@ export default function AccessGate({ children }: { children: ReactNode }) {
         )}
         {state === "error" && (
           <>
-            <p role="alert">{error}</p>
+            <p role="alert">{accessMessage(error, en)}</p>
             <button className="primary" onClick={() => void load()}>
               {en ? "Retry" : "重试"}
             </button>

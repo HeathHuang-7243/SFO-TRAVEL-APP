@@ -39,11 +39,12 @@ import ReceiptPhoto from "./ReceiptPhoto";
 import { captureReceipt, exportFile } from "../services/device";
 import { Capacitor } from "@capacitor/core";
 import { App as NativeApp } from "@capacitor/app";
-import { translate, type Language } from "../lib/i18n";
+import { translate } from "../lib/i18n";
 import RateHistory from "../components/RateHistory";
 import PlacePhoto from "../components/PlacePhoto";
 import SettingsPanel from "./SettingsPanel";
 import WelcomePanel from "./WelcomePanel";
+import { useLanguage } from "./LanguageProvider";
 import { shouldShowWelcome } from "../services/welcome";
 import {
   readPreferences,
@@ -92,13 +93,7 @@ const weatherText = (n: number) =>
 
 const categories = ["餐饮", "交通", "住宿", "门票", "购物", "其他"];
 export default function TravelApp() {
-  const [lang, setLang] = useState<Language>(() => {
-    try {
-      const saved = localStorage.getItem("bay-language");
-      if (saved === "zh" || saved === "en") return saved;
-    } catch {}
-    return navigator.language.startsWith("zh") ? "zh" : "en";
-  });
+  const { lang, setLang } = useLanguage();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [welcomeOpen, setWelcomeOpen] = useState(shouldShowWelcome);
   const [preferences, setPreferences] = useState(readPreferences);
@@ -136,12 +131,6 @@ export default function TravelApp() {
   }
   const [backupOpen, setBackupOpen] = useState(false),
     [online, setOnline] = useState(navigator.onLine);
-  useEffect(() => {
-    document.documentElement.lang = lang === "en" ? "en" : "zh-CN";
-    try {
-      localStorage.setItem("bay-language", lang);
-    } catch {}
-  }, [lang]);
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);
     window.addEventListener("online", update);
@@ -2349,9 +2338,7 @@ export default function TravelApp() {
           }}
         />
       )}
-      {welcomeOpen && (
-        <WelcomePanel lang={lang} onClose={() => setWelcomeOpen(false)} />
-      )}
+      {welcomeOpen && <WelcomePanel onClose={() => setWelcomeOpen(false)} />}
       {backupOpen && (
         <BackupPanel
           lang={lang}

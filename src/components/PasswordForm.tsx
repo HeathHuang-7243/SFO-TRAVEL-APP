@@ -17,13 +17,15 @@ export default function PasswordForm({
   const [repeat, setRepeat] = useState("");
   const [visible, setVisible] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<
+    { mismatch: true } | { failure: unknown } | null
+  >(null);
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (busy) return;
-    setError("");
+    setError(null);
     if (mode !== "unlock" && next !== repeat) {
-      setError(en ? "The passwords do not match." : "两次输入的密码不一致。");
+      setError({ mismatch: true });
       return;
     }
     setBusy(true);
@@ -36,7 +38,7 @@ export default function PasswordForm({
       setRepeat("");
       onSuccess();
     } catch (failure) {
-      setError(accessMessage(failure, en));
+      setError({ failure });
       setPassword("");
     } finally {
       setBusy(false);
@@ -126,7 +128,11 @@ export default function PasswordForm({
         </label>
         {error && (
           <p className="notice" role="alert">
-            {error}
+            {"mismatch" in error
+              ? en
+                ? "The passwords do not match."
+                : "两次输入的密码不一致。"
+              : accessMessage(error.failure, en)}
           </p>
         )}
         <button className="primary" type="submit">

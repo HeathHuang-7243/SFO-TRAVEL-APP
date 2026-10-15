@@ -404,3 +404,123 @@ test("one password exports backups and older passwords remain usable only for ol
     fullPage: true,
   });
 });
+
+test("startup language switches preserve inputs and sync introduction, app settings and future unlocks", async ({
+  page,
+}) => {
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await page.getByLabel("设置密码", { exact: true }).fill("2468");
+  await page.getByLabel("再次输入密码", { exact: true }).fill("0000");
+  await page.getByRole("button", { name: "设置密码并继续" }).click();
+  await expect(page.getByRole("alert")).toContainText("两次输入的密码不一致");
+  await page.getByRole("button", { name: "English", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText(
+    "The passwords do not match",
+  );
+  await expect(page.getByLabel("Set password", { exact: true })).toHaveValue(
+    "2468",
+  );
+  await page.getByLabel("Repeat password", { exact: true }).fill("2468");
+  await page.getByRole("button", { name: "Set password and continue" }).click();
+  const welcome = page.getByRole("dialog");
+  await expect(welcome).toHaveAccessibleName("Welcome to Bay Companion");
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await page.setViewportSize({ width: 320, height: 568 });
+  await welcome.getByRole("checkbox", { name: "Don’t show again" }).check();
+  await welcome.getByRole("link").scrollIntoViewIfNeeded();
+  await expect(
+    welcome.getByRole("button", { name: "中文", exact: true }),
+  ).toBeInViewport();
+  await welcome.getByRole("button", { name: "中文", exact: true }).click();
+  await expect(welcome).toHaveAccessibleName("欢迎使用「湾区随行」");
+  await expect(
+    welcome.getByRole("checkbox", { name: "不再显示" }),
+  ).toBeChecked();
+  await welcome.locator(".welcome-content").evaluate((element) => {
+    element.scrollTop = 0;
+  });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+  await page.screenshot({ path: "test-results/startup-language-welcome.png" });
+  await welcome.getByRole("button", { name: "开始使用" }).click();
+  await page.getByRole("button", { name: "设置中心", exact: true }).click();
+  await expect(
+    page.getByRole("combobox", { name: "语言", exact: true }),
+  ).toHaveValue("zh");
+  await page
+    .getByRole("combobox", { name: "语言", exact: true })
+    .selectOption("en");
+  await page
+    .getByRole("button", { name: "About this app · Introduction" })
+    .click();
+  await expect(welcome).toHaveAccessibleName("Welcome to Bay Companion");
+  await expect(
+    welcome.getByRole("button", { name: "English", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await welcome.getByRole("button", { name: "Close introduction" }).click();
+  await page.evaluate(() => {
+    const key = "sfo-access-lock:v1",
+      record = JSON.parse(localStorage.getItem(key)!);
+    record.approvedVersion = "previous-version";
+    localStorage.setItem(key, JSON.stringify(record));
+  });
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { name: "Enter your password to continue" }),
+  ).toBeVisible();
+  await page.getByLabel("Password", { exact: true }).fill("0000");
+  await page.getByRole("button", { name: "Unlock and continue" }).click();
+  await expect(page.getByRole("alert")).toContainText("Incorrect password");
+  await page.getByLabel("Password", { exact: true }).fill("2468");
+  await page.getByRole("button", { name: "中文", exact: true }).click();
+  await expect(page.getByLabel("密码", { exact: true })).toHaveValue("2468");
+  await expect(page.getByRole("alert")).toContainText("密码不正确");
+  await page.getByRole("button", { name: "解锁并继续" }).click();
+  await expect(page.locator(".app main")).toBeVisible();
+  await page.reload();
+  await page.getByRole("button", { name: "设置中心", exact: true }).click();
+  await expect(
+    page.getByRole("combobox", { name: "语言", exact: true }),
+  ).toHaveValue("zh");
+});
+
+test("English device can choose Chinese before setting a password and keep it after restart", async ({
+  browser,
+}) => {
+  const context = await browser.newContext({
+    locale: "en-US",
+    viewport: { width: 320, height: 568 },
+    colorScheme: "dark",
+  });
+  try {
+    const first = await context.newPage();
+    await first.route("https://**/*", (route) => route.abort());
+    await first.goto("/");
+    await expect(
+      first.getByRole("heading", { name: "Set an unlock password" }),
+    ).toBeVisible();
+    await first.screenshot({
+      path: "test-results/startup-language-password-dark.png",
+    });
+    expect(
+      await first.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBe(true);
+    await first.getByRole("button", { name: "中文", exact: true }).click();
+    await first.reload();
+    await expect(
+      first.getByRole("heading", { name: "设置解锁密码" }),
+    ).toBeVisible();
+    await expect(first.locator("html")).toHaveAttribute("lang", "zh-CN");
+    await expect(
+      first.getByRole("button", { name: "中文", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
+  } finally {
+    await context.close();
+  }
+});

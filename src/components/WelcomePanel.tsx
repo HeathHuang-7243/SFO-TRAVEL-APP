@@ -1,15 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { X, ExternalLink } from "lucide-react";
-import type { Language } from "../lib/i18n";
+import LanguageSwitch from "./LanguageSwitch";
+import { useLanguage } from "./LanguageProvider";
 import { saveWelcomeChoice, shouldShowWelcome } from "../services/welcome";
 
-export default function WelcomePanel({
-  lang,
-  onClose,
-}: {
-  lang: Language;
-  onClose: () => void;
-}) {
+export default function WelcomePanel({ onClose }: { onClose: () => void }) {
+  const { lang } = useLanguage();
   const en = lang === "en";
   const panel = useRef<HTMLElement>(null);
   const [skip, setSkip] = useState(() => !shouldShowWelcome());
@@ -59,19 +55,20 @@ export default function WelcomePanel({
           }
         }}
       >
+        <header className="welcome-toolbar">
+          <LanguageSwitch />
+          <button
+            className="iconbutton"
+            onClick={onClose}
+            aria-label={en ? "Close introduction" : "关闭应用说明"}
+          >
+            <X size={20} />
+          </button>
+        </header>
         <div className="settings-content welcome-content">
-          <div className="row between">
-            <h2 id="welcome-title">
-              {en ? "Welcome to Bay Companion" : "欢迎使用「湾区随行」"}
-            </h2>
-            <button
-              className="iconbutton"
-              onClick={onClose}
-              aria-label={en ? "Close introduction" : "关闭应用说明"}
-            >
-              <X size={20} />
-            </button>
-          </div>
+          <h2 id="welcome-title">
+            {en ? "Welcome to Bay Companion" : "欢迎使用「湾区随行」"}
+          </h2>
           <p>
             {en
               ? "A free, open-source travel companion for expenses and receipts, currency conversion and tips, San Francisco weather, places and conference information."

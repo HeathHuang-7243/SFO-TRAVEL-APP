@@ -4,6 +4,7 @@ import { getRepository } from "./storage/repository";
 import { openExternal } from "./services/device";
 import TravelApp from "./components/TravelApp";
 import AccessGate from "./components/AccessGate";
+import { LanguageProvider } from "./components/LanguageProvider";
 import { startThemeSync } from "./services/theme";
 import "./globals.css";
 import "./themes.css";
@@ -73,8 +74,10 @@ function Boot() {
 startThemeSync();
 createRoot(document.getElementById("root")!).render(
   <ErrorBoundary>
-    <AccessGate>
-      <Boot />
-    </AccessGate>
+    <LanguageProvider>
+      <AccessGate>
+        <Boot />
+      </AccessGate>
+    </LanguageProvider>
   </ErrorBoundary>,
 );
