@@ -539,8 +539,8 @@ export default function ExpenseEditor({
                   ) : (
                     <p className="fineprint">
                       {say(
-                        "可添加一张凭证，保存账目后再写入相册。",
-                        "Add a receipt. Gallery copies are created only after the expense is saved.",
+                        "可添加一张凭证；开启相册保存时，提交账目后再另存。",
+                        "Add a receipt. When gallery saving is enabled, a copy is created after the expense is saved.",
                       )}
                     </p>
                   )}

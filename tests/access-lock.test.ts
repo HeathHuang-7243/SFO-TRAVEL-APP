@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { PasswordLock, type AccessStore } from "../src/services/access-lock";
+import {
+  PasswordLock,
+  nativeAccessVersion,
+  type AccessStore,
+} from "../src/services/access-lock";
 
 function fixture() {
   let value: string | null = null;
@@ -21,6 +25,43 @@ function fixture() {
   };
 }
 describe("update password gate", () => {
+  it("unlocks a same-code beta with the original password and keeps future stable compatibility", async () => {
+    const f = fixture();
+    const stable = new PasswordLock(f.store, async () =>
+      nativeAccessVersion("1003004", "1.3.4"),
+    );
+    await stable.setup("0073");
+    const before = JSON.parse(f.raw()!);
+    const beta = new PasswordLock(f.store, async () =>
+      nativeAccessVersion("1003004", "1.3.4b"),
+    );
+    expect(await beta.state()).toBe("locked");
+    await expect(beta.unlock("0000")).rejects.toMatchObject({
+      code: "incorrect",
+    });
+    expect(JSON.parse(f.raw()!)).toMatchObject({
+      salt: before.salt,
+      verifier: before.verifier,
+      approvedVersion: before.approvedVersion,
+    });
+    await beta.unlock("0073");
+    expect(
+      await new PasswordLock(f.store, async () =>
+        nativeAccessVersion("1003004", "1.3.4b"),
+      ).state(),
+    ).toBe("unlocked");
+    const next = new PasswordLock(f.store, async () =>
+      nativeAccessVersion("1003005", "1.3.5"),
+    );
+    expect(await next.state()).toBe("locked");
+    await next.unlock("0073");
+    expect(await next.backupPassword()).toBe("0073");
+    expect(JSON.parse(f.raw()!)).toMatchObject({
+      salt: before.salt,
+      verifier: before.verifier,
+      approvedVersion: "1003005",
+    });
+  });
   it("remembers setup within a version, requires the same password after updates, and never stores plaintext", async () => {
     const f = fixture(),
       old = new PasswordLock(f.store, async () => "1002001");

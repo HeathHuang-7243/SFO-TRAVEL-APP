@@ -229,9 +229,16 @@ export class PasswordLock {
     });
   }
 }
-export const accessLock = new PasswordLock(store, async () =>
-  Capacitor.isNativePlatform() ? (await App.getInfo()).build : __APP_VERSION__,
-);
+export function nativeAccessVersion(build: string, version: string) {
+  // Stable records keep their existing identity. A same-code beta still needs
+  // one unlock without consuming the next stable Android versionCode.
+  return version.endsWith("b") ? `${build}:${version}` : build;
+}
+export const accessLock = new PasswordLock(store, async () => {
+  if (!Capacitor.isNativePlatform()) return __APP_VERSION__;
+  const info = await App.getInfo();
+  return nativeAccessVersion(info.build, info.version);
+});
 
 export function accessMessage(error: unknown, en: boolean) {
   const code = error instanceof AccessError ? error.code : "storage";
