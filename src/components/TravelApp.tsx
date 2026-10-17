@@ -913,10 +913,10 @@ export default function TravelApp() {
                     : tab === "money"
                       ? t("汇率与小费")
                       : tab === "expenses"
-                        ? t("让每一笔，都有记录。")
+                        ? t("旅行账本")
                         : tab === "explore"
                           ? t("工作之外，探索海湾。")
-                          : t("把下一次灵感，排进行程。")}
+                          : t("Ignite 会议")}
                 </h1>
                 <p>
                   {tab === "home"
@@ -1257,8 +1257,7 @@ export default function TravelApp() {
                     </span>
                     <strong>{money(expenseSum, expenseBase)}</strong>
                     <small>
-                      {expenses.length} {t("笔开销")} ·{" "}
-                      {t("按每笔保存的汇率汇总")}
+                      {expenses.length} {t("笔开销")}
                     </small>
                     {missingBase > 0 && (
                       <p className="notice">

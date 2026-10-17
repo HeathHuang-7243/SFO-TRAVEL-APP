@@ -372,8 +372,8 @@
     font-size: 13px;
   }
   .app .page-content {
-    padding-left: 14px;
-    padding-right: 14px;
+    padding-left: 0;
+    padding-right: 0;
   }
   .app .ignite-banner h2 {
     font-size: 18px;
