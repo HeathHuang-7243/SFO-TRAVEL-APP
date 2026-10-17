@@ -17,7 +17,7 @@ jobs:
           node-version: "22"
           cache: npm
       - name: Require the requested test version
-        run: node -e 'if(require("./package.json").version!=="1.3.4b")process.exit(1)'
+        run: node -e 'if(require("./package.json").version!=="1.3.4-b")process.exit(1)'
       - run: npm ci
       - run: npm run check
       - run: npx playwright install --with-deps chromium

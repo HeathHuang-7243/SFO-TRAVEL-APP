@@ -1,5 +1,5 @@
 apply plugin: 'com.android.application'
-def appVersion = new groovy.json.JsonSlurper().parse(file('../../package.json')).version
+def appVersion = new groovy.json.JsonSlurper().parse(file('../../package.json')).version.replaceFirst(/-b$/, 'b')
 def versionMatch = (appVersion =~ /^(\d+)\.(\d+)\.(\d+)(b)?$/)
 if (!versionMatch.matches()) throw new GradleException('Unsupported app version')
 def numbers = [versionMatch.group(1), versionMatch.group(2), versionMatch.group(3)].collect { it as int }
