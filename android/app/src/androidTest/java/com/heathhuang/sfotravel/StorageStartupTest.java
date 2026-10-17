@@ -208,6 +208,8 @@ public class StorageStartupTest {
     }
 
     private void selectTheme(String mode) throws Exception {
+        await("!!document.querySelector('.settings-menu button') || !!document.querySelector('[data-theme-mode]')");
+        evaluate("(() => { if (!document.querySelector('[data-theme-mode]')) document.querySelector('.settings-menu button').click(); })(); true");
         await("!!document.querySelector('[data-theme-mode=\"" + mode + "\"]')");
         evaluate("document.querySelector('[data-theme-mode=\"" + mode + "\"]').click(); true");
         await("document.documentElement.dataset.themePreference === '" + mode + "'");
