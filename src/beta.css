@@ -35,6 +35,32 @@
 .app .expense-summary > div > span {
   font-size: 11px;
 }
+.app .expense-summary > div:first-child {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 12px;
+}
+.app .expense-summary > div:first-child > span,
+.app .expense-summary > div:first-child > strong,
+.app .expense-summary > div:first-child > small {
+  grid-column: 1;
+}
+.app .expense-summary .expense-base-control {
+  grid-column: 2;
+  grid-row: 1 / 4;
+  display: grid;
+  gap: 4px;
+  margin: 0;
+}
+.app .expense-summary .expense-base-control select {
+  width: 120px;
+  min-width: 0;
+  font-size: 12px;
+}
+.app .expense-summary .notice {
+  grid-column: 1 / -1;
+}
 .app .expense-summary strong {
   font-size: 28px;
   line-height: 1.2;
@@ -327,7 +353,13 @@
 }
 @media (max-width: 359px) {
   .app .ledger-card .toolbar {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .app .ledger-card .toolbar .secondary {
+    width: 44px;
+    min-width: 44px;
+    font-size: 0;
+    gap: 0;
   }
   .app .expense-row {
     grid-template-columns: 40px minmax(0, 1fr) auto;
