@@ -374,7 +374,14 @@ export default function ExpenseEditor({
             <p>
               {pending.description || say("尚未填写描述", "No description yet")}
             </p>
-            <button className="primary full" onClick={() => void resume()}>
+            <button
+              className="primary full"
+              onClick={() =>
+                void resume().catch((e) =>
+                  setError(String((e as Error).message)),
+                )
+              }
+            >
               {say("继续填写草稿", "Continue draft")}
             </button>
             <button
@@ -583,7 +590,7 @@ export default function ExpenseEditor({
                       value.id ? "Original exchange rates" : "Exchange rates",
                     )}
                   </summary>
-                  <p className="fineprint">{value.rateInfo}</p>
+                  <p className="fineprint">{t(value.rateInfo)}</p>
                   {value.id ? (
                     <p className="fineprint">
                       1 USD = {value.usdCny} CNY · {value.usdEur} EUR

@@ -346,7 +346,8 @@ public class StorageStartupTest {
     @Test public void betaUpdaterBridgeReportsStateAndRejectsUntrustedDownloads() throws Exception {
         launch();
         assertEquals("idle", pluginCall("AppUpdater", "getDownloadState", new JSONObject()).getString("phase"));
-        pluginCall("AppUpdater", "cancelDownload", new JSONObject());
+        evaluate("window.__cancelFinished=false; Capacitor.nativePromise('AppUpdater','cancelDownload',{}).then(()=>{window.__cancelFinished=true;}); true");
+        await("window.__cancelFinished === true");
         evaluate("window.__updateError=null; Capacitor.nativePromise('AppUpdater','downloadUpdate',{url:'https://example.com/foreign.apk',sha256:'a'.repeat(64)}).then(()=>{window.__updateError='unexpected success';}).catch(error=>{window.__updateError=error.code;}); true");
         await("window.__updateError !== null");
         assertEquals("\"INVALID_PACKAGE\"", evaluate("window.__updateError"));
