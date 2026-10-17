@@ -35,8 +35,10 @@ import { attractions } from "../lib/attractions";
 import { loadWeather } from "../services/public-data";
 import { localApi as api } from "../services/local-api";
 import BackupPanel from "./BackupPanel";
+import BackupStatus from "./BackupStatus";
 import ReceiptPhoto from "./ReceiptPhoto";
-import { captureReceipt, exportFile } from "../services/device";
+import { exportFile } from "../services/device";
+import ExpenseEditor, { type ExpenseSeed } from "./ExpenseEditor";
 import { Capacitor } from "@capacitor/core";
 import { App as NativeApp } from "@capacitor/app";
 import { translate } from "../lib/i18n";
@@ -199,13 +201,8 @@ export default function TravelApp() {
     [tip, setTip] = useState("18"),
     [basis, setBasis] = useState("sell"),
     [manual, setManual] = useState({ USD: "", EUR: "" });
-  const [modal, setModal] = useState(false),
-    [description, setDescription] = useState(""),
-    [category, setCategory] = useState("餐饮"),
-    [expenseDate, setExpenseDate] = useState(""),
-    [photo, setPhoto] = useState<File | null>(null),
-    [photoUrl, setPhotoUrl] = useState(""),
-    [saving, setSaving] = useState(false);
+  const [modal, setModal] = useState(false);
+  const [expenseSeed, setExpenseSeed] = useState<ExpenseSeed>({});
   const [forecastDays, setForecastDays] = useState(3);
   const [visitDate, setVisitDate] = useState(""),
     [placeFilter, setPlaceFilter] = useState("all"),
@@ -271,7 +268,6 @@ export default function TravelApp() {
   }
   useEffect(() => {
     setNow(new Date());
-    setExpenseDate(deviceDate());
     setVisitDate(dateLocal());
     ["rates", "weather", "sessions", "rate-history"].forEach((k) => refresh(k));
     refresh("expenses");
@@ -284,15 +280,6 @@ export default function TravelApp() {
     const t = setTimeout(() => setToast(""), 5000);
     return () => clearTimeout(t);
   }, [toast]);
-  useEffect(() => {
-    if (!photo) {
-      setPhotoUrl("");
-      return;
-    }
-    const u = URL.createObjectURL(photo);
-    setPhotoUrl(u);
-    return () => URL.revokeObjectURL(u);
-  }, [photo]);
   useEffect(() => setPage(1), [query, topic, type, onlyFav]);
   const rate = (c: string) =>
     c === "CNY"
@@ -388,88 +375,18 @@ export default function TravelApp() {
       .includes(expenseQuery.toLowerCase()),
   );
   function openExpense() {
-    setDescription("");
-    setCategory("餐饮");
-    setPhoto(null);
-    setExpenseDate(deviceDate());
+    setExpenseSeed({});
     setModal(true);
   }
-  async function saveExpense(e: React.FormEvent) {
-    e.preventDefault();
-    if (!valid || !snapshotValid) return;
-    setSaving(true);
-    try {
-      const f = new FormData();
-      f.set(
-        "data",
-        JSON.stringify({
-          date: expenseDate,
-          description,
-          category,
-          currency,
-          amount: base,
-          tip: pct,
-          usdCny,
-          usdEur,
-          rateInfo: rateNote,
-        }),
-      );
-      if (photo) f.set("photo", photo);
-      const result = await recordExpense(f, preferences.saveToGallery);
-      setModal(false);
-      setPhoto(null);
-      await refresh("expenses");
-      setToast(
-        result.gallerySaved
-          ? lang === "en"
-            ? "Expense and gallery photo saved"
-            : "账目及相册照片已保存"
-          : "账目已保存",
-      );
-      if (result.galleryError && result.expense.photo_key) {
-        setGalleryFailure({
-          path: result.expense.photo_key,
-          message: result.galleryError,
-        });
-      }
-    } catch (e) {
-      setToast((e as Error).message);
-    } finally {
-      setSaving(false);
-    }
+  function openCalculatedExpense() {
+    setExpenseSeed({
+      calculator: { amount, currency: currency as "USD" | "EUR" | "CNY", tip },
+    });
+    setModal(true);
   }
-  async function selectPhoto(file?: File) {
-    if (!file) return;
-    try {
-      if (!file.type.startsWith("image/")) throw Error("请选择照片");
-      if (file.size > 25 * 1024 * 1024) throw Error("原始照片请小于 25 MB");
-      const img = new Image();
-      const url = URL.createObjectURL(file);
-      try {
-        await new Promise<void>((resolve, reject) => {
-          img.onload = () => resolve();
-          img.onerror = () =>
-            reject(Error("无法读取此照片，请选择 JPG 或 PNG"));
-          img.src = url;
-        });
-        const canvas = document.createElement("canvas");
-        const ratio = Math.min(1, 1800 / Math.max(img.width, img.height));
-        canvas.width = Math.round(img.width * ratio);
-        canvas.height = Math.round(img.height * ratio);
-        canvas
-          .getContext("2d")!
-          .drawImage(img, 0, 0, canvas.width, canvas.height);
-        const blob = await new Promise<Blob | null>((resolve) =>
-          canvas.toBlob(resolve, "image/jpeg", 0.85),
-        );
-        if (!blob) throw Error("照片处理失败");
-        setPhoto(new File([blob], "receipt.jpg", { type: "image/jpeg" }));
-      } finally {
-        URL.revokeObjectURL(url);
-      }
-    } catch (e) {
-      setToast((e as Error).message);
-    }
+  function editExpense(expense: any) {
+    setExpenseSeed({ expense });
+    setModal(true);
   }
   async function removeExpense(id: string) {
     if (!confirm(t("删除这笔账目及其照片？"))) return;
@@ -561,7 +478,7 @@ export default function TravelApp() {
         return;
       }
       if (settingsOpen) {
-        setSettingsOpen(false);
+        window.dispatchEvent(new Event("sfo-settings-back"));
         return;
       }
       if (document.querySelector(".receipt-view")) {
@@ -573,7 +490,7 @@ export default function TravelApp() {
         return;
       }
       if (modal) {
-        if (!saving) setModal(false);
+        window.dispatchEvent(new Event("sfo-expense-back"));
         return;
       }
       if (place) {
@@ -600,16 +517,7 @@ export default function TravelApp() {
       window.removeEventListener("keydown", escape);
       void listener?.then((h) => h.remove());
     };
-  }, [
-    welcomeOpen,
-    settingsOpen,
-    backupOpen,
-    modal,
-    saving,
-    place,
-    session,
-    tab,
-  ]);
+  }, [welcomeOpen, settingsOpen, backupOpen, modal, place, session, tab]);
   const nav = [
     { id: "home", name: "出差概览", en: "Overview", icon: LayoutDashboard },
     {
@@ -785,7 +693,7 @@ export default function TravelApp() {
         <button
           className="primary full"
           disabled={!valid}
-          onClick={openExpense}
+          onClick={openCalculatedExpense}
         >
           <Plus size={17} />
           {t("将这笔消费记入账本")}
@@ -867,7 +775,7 @@ export default function TravelApp() {
     );
   }
   return (
-    <div className="app">
+    <div className="app" data-tab={tab}>
       <nav
         className="app-tabs"
         aria-label={lang === "en" ? "Main tabs" : "主要功能"}
@@ -989,6 +897,13 @@ export default function TravelApp() {
             </div>
           )}
           <div className="page-content">
+            {tab === "home" && expenses.length > 0 && (
+              <BackupStatus
+                en={lang === "en"}
+                reminder
+                onBackup={() => setBackupOpen(true)}
+              />
+            )}
             <div className="page-heading">
               <div>
                 <div className="eyebrow">SAN FRANCISCO · 2026</div>
@@ -1352,26 +1267,33 @@ export default function TravelApp() {
                       </p>
                     )}
                   </div>
-                  <div className="currency-sums">
-                    {["USD", "EUR", "CNY"].map((c) => (
-                      <div key={c}>
-                        <small>
-                          {c}
-                          {t(" 原币合计")}
-                        </small>
-                        <b>
-                          {money(
-                            expenses
-                              .filter((e) => e.currency === c)
-                              .reduce((s, e) => s + e.total, 0),
-                            c,
-                          )}
-                        </b>
-                      </div>
-                    ))}
-                  </div>
+                  <details className="currency-breakdown">
+                    <summary>
+                      {lang === "en"
+                        ? "Original currency totals"
+                        : "查看原币合计"}
+                    </summary>
+                    <div className="currency-sums">
+                      {["USD", "EUR", "CNY"].map((c) => (
+                        <div key={c}>
+                          <small>
+                            {c}
+                            {t(" 原币合计")}
+                          </small>
+                          <b>
+                            {money(
+                              expenses
+                                .filter((e) => e.currency === c)
+                                .reduce((s, e) => s + e.total, 0),
+                              c,
+                            )}
+                          </b>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
                 </div>
-                <section className="card">
+                <section className="card ledger-card">
                   <div className="toolbar">
                     <label className="search">
                       <Search size={18} />
@@ -1424,20 +1346,29 @@ export default function TravelApp() {
                               <Receipt size={23} />
                             </div>
                           )}
-                          <div className="expense-detail">
+                          <button
+                            type="button"
+                            className="expense-detail expense-open"
+                            onClick={() => editExpense(e)}
+                            aria-label={
+                              (lang === "en"
+                                ? "Edit expense: "
+                                : "编辑账目：") + e.description
+                            }
+                          >
                             <strong>{e.description}</strong>
                             <span>
                               {e.date} · {t(e.category)}
                               {t(" · 小费 ")}
                               {e.tip}%
                             </span>
-                            <small>{t(e.rate_info || "")}</small>
-                            <small className="saved-fx">
+
+                            <small className="saved-fx expense-extra">
                               {e.usd_cny && e.usd_eur
                                 ? `1 USD = ${e.usd_cny.toFixed(4)} CNY · ${e.usd_eur.toFixed(6)} EUR`
                                 : t("旧记录未保存完整汇率快照")}
                             </small>
-                          </div>
+                          </button>
                           <div className="expense-value">
                             <strong>{money(e.total, e.currency)}</strong>
                             <small>
@@ -1752,11 +1683,16 @@ export default function TravelApp() {
                     {refreshButton("sessions")}
                   </div>
                 </div>
-                <div className="notice neutral">
+                <details className="notice neutral catalogue-help">
+                  <summary>
+                    {lang === "en"
+                      ? "About session times & favorites"
+                      : "会议时间与收藏说明"}
+                  </summary>
                   {t(
                     "已公布的时间段和会场会显示在详情中；日期或时区待定时，不换算为当地时间。测试房间不显示，收藏不代表官方预订。",
                   )}
-                </div>
+                </details>
                 {catalogue?.stale && (
                   <p className="notice">
                     {lang === "en"
@@ -1891,223 +1827,30 @@ export default function TravelApp() {
         </main>
       </div>
       {modal && (
-        <div className="overlay" onClick={() => !saving && setModal(false)}>
-          <section
-            className="modal"
-            role="dialog"
-            aria-modal="true"
-            aria-label={t("记录消费")}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="section-head">
-              <div>
-                <span className="eyebrow">KEEP THE MOMENT</span>
-                <h2>{t("记一笔消费")}</h2>
-              </div>
-              <button
-                className="iconbutton"
-                disabled={saving}
-                aria-label={t("关闭")}
-                onClick={() => setModal(false)}
-              >
-                <X />
-              </button>
-            </div>
-            <form onSubmit={saveExpense}>
-              <div className="form-grid">
-                <label className="label">
-                  {t("金额")}
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    max="100000000"
-                    required
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                  />
-                </label>
-                <label className="label">
-                  {t("币种")}
-                  <select
-                    value={currency}
-                    onChange={(e) => setCurrency(e.target.value)}
-                  >
-                    {["USD", "EUR", "CNY"].map((c) => (
-                      <option key={c} value={c}>
-                        {t(c)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="label">
-                  {t("小费 %")}
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.1"
-                    required
-                    value={tip}
-                    onChange={(e) => setTip(e.target.value)}
-                  />
-                </label>
-                <label className="label">
-                  {t("消费日期（设备当地）")}
-                  <input
-                    type="date"
-                    required
-                    value={expenseDate}
-                    onChange={(e) => setExpenseDate(e.target.value)}
-                  />
-                </label>
-              </div>
-              <label className="label">
-                {t("分类")}
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                >
-                  {categories.map((c) => (
-                    <option key={c} value={c}>
-                      {t(c)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="label">
-                {t("描述")}
-                <textarea
-                  placeholder={t("例如：Fisherman’s Wharf 晚餐，与同事用餐")}
-                  maxLength={1000}
-                  required
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                />
-              </label>
-              <div className="photo-upload">
-                {photoUrl ? (
-                  <>
-                    <img src={photoUrl} alt={t("待保存的消费照片")} />
-                    <button
-                      type="button"
-                      className="secondary"
-                      onClick={() => setPhoto(null)}
-                    >
-                      <X size={15} />
-                      {t("移除照片")}
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <Camera size={28} />
-                    <b>{t("留下一张消费凭证")}</b>
-                    <p>{t("照片可选，支持拍照或从相册选择。")}</p>
-                  </>
-                )}
-                <div className="row">
-                  {Capacitor.isNativePlatform() ? (
-                    <button
-                      type="button"
-                      className="secondary"
-                      onClick={async () => {
-                        try {
-                          const file = await captureReceipt();
-                          if (file) await selectPhoto(file);
-                        } catch (e) {
-                          setToast(String(e));
-                        }
-                      }}
-                    >
-                      <Camera size={16} />
-                      {t("拍照")}
-                    </button>
-                  ) : (
-                    <label className="secondary file-button">
-                      <Camera size={16} />
-                      {t("拍照")}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        onChange={(e) => selectPhoto(e.target.files?.[0])}
-                      />
-                    </label>
-                  )}
-                  <label className="secondary file-button">
-                    <ImagePlus size={16} />
-                    {t("相册")}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => selectPhoto(e.target.files?.[0])}
-                    />
-                  </label>
-                </div>
-              </div>
-              <div className="calc-total">
-                <span>
-                  {t("含小费合计")}
-                  <small>
-                    {expenseReferenceTotal !== null
-                      ? "≈ " + money(expenseReferenceTotal, expenseBase)
-                      : t("等待汇率")}
-                  </small>
-                </span>
-                <strong>{money(total, currency)}</strong>
-              </div>
-              <div className="expense-reference">
-                <div className="row between">
-                  <span className="eyebrow">EXCHANGE REFERENCE</span>
-                  <button
-                    type="button"
-                    className="secondary"
-                    disabled={busy.rates}
-                    onClick={() => refresh("rates", true)}
-                  >
-                    <RefreshCw size={15} className={busy.rates ? "spin" : ""} />
-                    {t("刷新参考汇率")}
-                  </button>
-                </div>
-                <p className="fineprint">{t(rateNote)}</p>
-                <p className="saved-fx">
-                  {snapshotValid
-                    ? `1 USD = ${usdCny.toFixed(4)} CNY · ${usdEur.toFixed(6)} EUR`
-                    : t("请先获取或手动填写 USD→CNY 和 USD→EUR 汇率")}
-                </p>
-                <p className="fineprint">
-                  {t("保存后汇率与换算金额固定，不随刷新变化。")}
-                </p>
-                {!snapshotValid && (
-                  <button
-                    type="button"
-                    className="text-link"
-                    onClick={() => {
-                      setModal(false);
-                      setBasis("manual");
-                      navigate("money");
-                    }}
-                  >
-                    {t("手动输入参考汇率")}
-                  </button>
-                )}
-                {rates?.stale && <p className="notice">{t(rates.warning)}</p>}
-              </div>
-              <button
-                className="primary full"
-                disabled={saving || !valid || !snapshotValid}
-                type="submit"
-              >
-                {saving ? (
-                  <RefreshCw size={17} className="spin" />
-                ) : (
-                  <Check size={17} />
-                )}{" "}
-                {saving ? t("正在保存…") : t("保存账目")}
-              </button>
-            </form>
-          </section>
-        </div>
+        <ExpenseEditor
+          en={lang === "en"}
+          seed={expenseSeed}
+          fx={{ usdCny, usdEur, note: rateNote }}
+          saveToGallery={preferences.saveToGallery}
+          onClose={() => setModal(false)}
+          onSaved={async (result) => {
+            await refresh("expenses");
+            setToast(
+              result.gallerySaved
+                ? lang === "en"
+                  ? "Expense and gallery photo saved"
+                  : "账目及相册照片已保存"
+                : lang === "en"
+                  ? "Expense saved"
+                  : "账目已保存",
+            );
+            if (result.galleryError && result.expense.photo_key)
+              setGalleryFailure({
+                path: result.expense.photo_key,
+                message: result.galleryError,
+              });
+          }}
+        />
       )}
       {place && (
         <div className="overlay" onClick={() => setPlace(null)}>

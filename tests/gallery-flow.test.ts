@@ -52,3 +52,18 @@ it("does not create a gallery photo when the expense could not be saved", async 
   );
   expect(gallery).not.toHaveBeenCalled();
 });
+it("does not duplicate a gallery receipt when only expense fields are edited", async () => {
+  await recordExpense(new FormData(), true, "saved");
+  expect(gallery).not.toHaveBeenCalled();
+  const form = new FormData();
+  form.set(
+    "photo",
+    new File(["receipt"], "receipt.jpg", { type: "image/jpeg" }),
+  );
+  await recordExpense(form, true, "saved");
+  expect(gallery).toHaveBeenCalledTimes(1);
+  expect(api).toHaveBeenLastCalledWith(
+    "/api/expenses?id=saved",
+    expect.objectContaining({ method: "PUT" }),
+  );
+});

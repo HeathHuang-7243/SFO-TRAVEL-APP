@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import { Download } from "lucide-react";
 import type { Language } from "../lib/i18n";
@@ -8,6 +8,8 @@ import {
   isDebugApp,
   releasePage,
   type AppUpdate,
+  type DownloadState,
+  updateError,
 } from "../services/updates";
 
 export default function UpdatePanel({ lang }: { lang: Language }) {
@@ -17,6 +19,58 @@ export default function UpdatePanel({ lang }: { lang: Language }) {
   const [downloaded, setDownloaded] = useState(false);
   const [debug, setDebug] = useState(false);
   const [message, setMessage] = useState("");
+  const [progress, setProgress] = useState<DownloadState | null>(null);
+  const progressRef = useRef<DownloadState | null>(null);
+  const [cancelling, setCancelling] = useState(false);
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    let active = true;
+    let remove: (() => void) | undefined;
+    const receive = (state: DownloadState) => {
+      if (!active) return;
+      progressRef.current = state;
+      setProgress(state);
+      const downloading = ["connecting", "downloading", "verifying"].includes(
+        state.phase,
+      );
+      setBusy(downloading);
+      setDownloaded(state.phase === "ready");
+      if (!downloading) setCancelling(false);
+      const match = state.url.match(/\/v(\d+\.\d+\.\d+)\//);
+      if (match && state.sha256)
+        setUpdate({
+          version: match[1],
+          url: state.url,
+          sha256: state.sha256,
+          size: state.totalBytes,
+          notes: "",
+        });
+      if (state.phase === "cancelled" || state.phase === "error")
+        setMessage(updateError({ code: state.errorCode }, en));
+      if (state.phase === "ready")
+        setMessage(
+          en
+            ? "Download verified. Continue to Android installation."
+            : "安装包已下载并校验，可继续安装。",
+        );
+    };
+    void AppUpdater.addListener("downloadProgress", receive)
+      .then((handle) => {
+        if (!active) {
+          void handle.remove();
+          return;
+        }
+        remove = () => {
+          void handle.remove();
+        };
+        return AppUpdater.getDownloadState().then(receive);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+      remove?.();
+    };
+  }, [en]);
   async function check() {
     setBusy(true);
     setMessage("");
@@ -35,6 +89,13 @@ export default function UpdatePanel({ lang }: { lang: Language }) {
       }
       const next = await checkForUpdate();
       setUpdate(next);
+      if (
+        next &&
+        progressRef.current?.phase === "ready" &&
+        progressRef.current.url === next.url &&
+        progressRef.current.sha256 === next.sha256
+      )
+        setDownloaded(true);
       if (!next)
         setMessage(
           en
@@ -64,6 +125,7 @@ export default function UpdatePanel({ lang }: { lang: Language }) {
         await AppUpdater.downloadUpdate({
           url: update.url,
           sha256: update.sha256,
+          size: update.size,
         });
         setDownloaded(true);
       }
@@ -78,7 +140,7 @@ export default function UpdatePanel({ lang }: { lang: Language }) {
             : "请在系统安装界面确认更新。取消后可在这里继续安装。",
       );
     } catch (error) {
-      setMessage(String(error));
+      setMessage(updateError(error, en));
     } finally {
       setBusy(false);
     }
@@ -129,6 +191,48 @@ export default function UpdatePanel({ lang }: { lang: Language }) {
           )}
         </div>
       )}
+      {progress &&
+        ["connecting", "downloading", "verifying"].includes(progress.phase) && (
+          <div aria-live="polite">
+            <progress
+              className="update-progress"
+              max={progress.totalBytes || undefined}
+              value={progress.totalBytes ? progress.downloadedBytes : undefined}
+            />
+            <p>
+              {progress.phase === "connecting"
+                ? en
+                  ? "Connecting…"
+                  : "正在连接…"
+                : progress.phase === "verifying"
+                  ? en
+                    ? "Verifying package…"
+                    : "正在校验安装包…"
+                  : `${progress.totalBytes ? Math.min(100, Math.round((progress.downloadedBytes / progress.totalBytes) * 100)) + "% · " : ""}${(progress.downloadedBytes / 1024 / 1024).toFixed(1)} / ${(progress.totalBytes / 1024 / 1024).toFixed(1)} MB`}
+            </p>
+            <button
+              className="secondary"
+              disabled={cancelling}
+              onClick={async () => {
+                setCancelling(true);
+                try {
+                  await AppUpdater.cancelDownload();
+                } catch (e) {
+                  setCancelling(false);
+                  setMessage(updateError(e, en));
+                }
+              }}
+            >
+              {cancelling
+                ? en
+                  ? "Cancelling…"
+                  : "正在取消…"
+                : en
+                  ? "Cancel download"
+                  : "取消下载"}
+            </button>
+          </div>
+        )}
       {message && <p role="status">{message}</p>}
       <a href={releasePage} target="_blank" rel="noopener noreferrer">
         {en ? "GitHub releases" : "查看 GitHub 正式版"}

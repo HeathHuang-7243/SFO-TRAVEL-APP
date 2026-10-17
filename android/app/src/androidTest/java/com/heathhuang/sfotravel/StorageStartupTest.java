@@ -322,6 +322,37 @@ public class StorageStartupTest {
             .optJSONArray("values");
     }
 
+    @Test public void betaDraftSurvivesNativeWebViewRestart() throws Exception {
+        launch();
+        evaluate("document.querySelectorAll('.app-tabs button')[2].click(); true");
+        evaluate("document.querySelector('.page-heading .primary').click(); true");
+        await("!!document.querySelector('.expense-editor input[type=number]')");
+        assertEquals("\"\"", evaluate("document.querySelector('.expense-editor input[type=number]').value"));
+        evaluate("(() => { const input=document.querySelector('.expense-editor input[type=number]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'42.25'); input.dispatchEvent(new Event('input',{bubbles:true})); const text=document.querySelector('.expense-editor textarea'); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(text,'Native draft'); text.dispatchEvent(new Event('input',{bubbles:true})); })(); true");
+        await("!!document.querySelector('.editor-footer [role=status]') && /Draft saved|草稿已/.test(document.querySelector('.editor-footer [role=status]').textContent)");
+        JSONObject draft = new JSONObject(query("SELECT value FROM local_chunks WHERE key='expense-draft:v1' AND part=0").getJSONObject(0).getString("value"));
+        assertEquals("42.25", draft.getString("amount"));
+        assertEquals("Native draft", draft.getString("description"));
+        reload();
+        evaluate("document.querySelectorAll('.app-tabs button')[2].click(); true");
+        evaluate("document.querySelector('.page-heading .primary').click(); true");
+        await("!!document.querySelector('.draft-choice .primary')");
+        evaluate("document.querySelector('.draft-choice .primary').click(); true");
+        await("!!document.querySelector('.expense-editor textarea')");
+        assertEquals("\"42.25\"", evaluate("document.querySelector('.expense-editor input[type=number]').value"));
+        assertEquals("\"Native draft\"", evaluate("document.querySelector('.expense-editor textarea').value"));
+    }
+
+    @Test public void betaUpdaterBridgeReportsStateAndRejectsUntrustedDownloads() throws Exception {
+        launch();
+        assertEquals("idle", pluginCall("AppUpdater", "getDownloadState", new JSONObject()).getString("phase"));
+        pluginCall("AppUpdater", "cancelDownload", new JSONObject());
+        evaluate("window.__updateError=null; Capacitor.nativePromise('AppUpdater','downloadUpdate',{url:'https://example.com/foreign.apk',sha256:'a'.repeat(64)}).then(()=>{window.__updateError='unexpected success';}).catch(error=>{window.__updateError=error.code;}); true");
+        await("window.__updateError !== null");
+        assertEquals("\"INVALID_PACKAGE\"", evaluate("window.__updateError"));
+        assertEquals("idle", pluginCall("AppUpdater", "getDownloadState", new JSONObject()).getString("phase"));
+    }
+
     private JSONObject nativeCall(String method, JSONObject options) throws Exception {
         options.put("database", "sfo_travel").put("readonly", false);
         return pluginCall("CapacitorSQLite", method, options);

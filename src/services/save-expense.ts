@@ -3,15 +3,23 @@ import { localApi } from "./local-api";
 import { saveReceiptToGallery } from "./native-device";
 import type { Expense } from "../storage/model";
 
-export async function recordExpense(form: FormData, saveToGallery: boolean) {
-  const expense: Expense = await localApi("/api/expenses", {
-    method: "POST",
-    body: form,
-  });
+export async function recordExpense(
+  form: FormData,
+  saveToGallery: boolean,
+  editingId?: string,
+) {
+  const expense: Expense = await localApi(
+    "/api/expenses" + (editingId ? "?id=" + encodeURIComponent(editingId) : ""),
+    {
+      method: editingId ? "PUT" : "POST",
+      body: form,
+    },
+  );
   let galleryError: string | null = null;
   let gallerySaved = false;
   if (
     saveToGallery &&
+    (!editingId || form.get("photo") instanceof File) &&
     expense.photo_key &&
     Capacitor.getPlatform() === "android"
   ) {

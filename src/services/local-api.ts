@@ -12,15 +12,21 @@ export async function localApi(
   const repo = await getRepository();
   const force = url.searchParams.get("refresh") === "1";
   if (name === "expenses") {
-    if (options?.method === "POST") {
+    if (options?.method === "POST" || options?.method === "PUT") {
       const form = options.body as FormData;
       const photo = form.get("photo");
-      return repo.add(
-        JSON.parse(String(form.get("data"))),
+      const input = JSON.parse(String(form.get("data")));
+      const photoData =
         photo instanceof File && photo.size
           ? await fileBase64(photo)
-          : undefined,
-      );
+          : undefined;
+      return options.method === "PUT"
+        ? repo.update(
+            url.searchParams.get("id") || "",
+            input,
+            form.get("removePhoto") === "true" ? null : photoData,
+          )
+        : repo.add(input, photoData);
     }
     if (options?.method === "DELETE") {
       await repo.remove(url.searchParams.get("id") || "");

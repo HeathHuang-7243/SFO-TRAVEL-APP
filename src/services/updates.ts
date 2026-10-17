@@ -1,4 +1,9 @@
-import { Capacitor, CapacitorHttp, registerPlugin } from "@capacitor/core";
+import {
+  Capacitor,
+  CapacitorHttp,
+  registerPlugin,
+  type PluginListenerHandle,
+} from "@capacitor/core";
 import { App } from "@capacitor/app";
 
 export const releasePage =
@@ -13,8 +18,11 @@ export type AppUpdate = {
   size: number;
 };
 export function versionCode(version: string) {
-  if (!/^\d+\.\d+\.\d+$/.test(version)) throw Error("Invalid version");
-  const [major, minor, patch] = version.split(".").map(Number);
+  if (!/^\d+\.\d+\.\d+b?$/.test(version)) throw Error("Invalid version");
+  const [major, minor, patch] = version
+    .replace(/b$/, "")
+    .split(".")
+    .map(Number);
   if (major > 2000 || minor > 999 || patch > 999)
     throw Error("Invalid version");
   return major * 1000000 + minor * 1000 + patch;
@@ -23,6 +31,7 @@ export function parseUpdate(data: any, current: string): AppUpdate | null {
   if (data.draft || data.prerelease) return null;
   const version = String(data.tag_name ?? "").replace(/^v/, "");
   if (versionCode(version) <= versionCode(current)) return null;
+  if (!/^\d+\.\d+\.\d+$/.test(version)) return null;
   const name = `SFOBusinessTravel-v${version}.apk`;
   const url = `https://github.com/HeathHuang-7243/SFO-TRAVEL-APP/releases/download/v${version}/${name}`;
   const asset = data.assets?.find((item: any) => item.name === name);
@@ -77,6 +86,59 @@ export async function isDebugApp() {
   );
 }
 export const AppUpdater = registerPlugin<{
-  downloadUpdate(options: { url: string; sha256: string }): Promise<void>;
+  downloadUpdate(options: {
+    url: string;
+    sha256: string;
+    size?: number;
+  }): Promise<void>;
+  cancelDownload(): Promise<void>;
+  getDownloadState(): Promise<DownloadState>;
+  addListener(
+    event: "downloadProgress",
+    listener: (state: DownloadState) => void,
+  ): Promise<PluginListenerHandle>;
   installUpdate(): Promise<{ permissionRequired: boolean }>;
 }>("AppUpdater");
+export type DownloadState = {
+  phase:
+    | "idle"
+    | "connecting"
+    | "downloading"
+    | "verifying"
+    | "ready"
+    | "cancelled"
+    | "error";
+  downloadedBytes: number;
+  totalBytes: number;
+  url: string;
+  sha256: string;
+  errorCode?: string;
+};
+export function updateError(error: unknown, en: boolean) {
+  const value = error as { code?: string; message?: string };
+  const code = value?.code || "";
+  const message = String(value?.message || error);
+  if (code === "DOWNLOAD_CANCELLED")
+    return en
+      ? "Download cancelled. You can retry when ready."
+      : "下载已取消，可随时重新下载。";
+  if (code === "CHECKSUM_MISMATCH" || /checksum/i.test(message))
+    return en
+      ? "The download is incomplete or damaged. Download it again."
+      : "下载文件不完整或已损坏，请重新下载。";
+  if (code === "SIGNATURE_MISMATCH" || /signing certificate|签名/.test(message))
+    return en
+      ? "This package has a different signature. Keep your installed app and use the official releases."
+      : "安装包签名与当前应用不一致，请保留已安装应用，核对正式版来源。";
+  if (code === "STORAGE_ERROR")
+    return en
+      ? "Could not save the APK. Check free storage and retry."
+      : "安装包未能保存，请检查手机剩余空间后重试。";
+  if (code === "INVALID_PACKAGE")
+    return en
+      ? "The package does not match this app or is not a newer version. Check again."
+      : "安装包与当前应用不匹配，或不是更新版本，请重新检查更新。";
+  return en
+    ? "Could not finish the update. Check your connection, retry, or open GitHub releases."
+    : "更新未能完成，请检查网络后重试，或打开 GitHub 正式版页面。";
+}

@@ -9,6 +9,9 @@ import {
 import { exportFile } from "../services/device";
 import type { Language } from "../lib/i18n";
 import PasswordKeyboardChoice from "./PasswordKeyboardChoice";
+import BackupStatus from "./BackupStatus";
+import { updateBackupStatus } from "../services/backup-status";
+import { Capacitor } from "@capacitor/core";
 export default function BackupPanel({
   lang,
   onClose,
@@ -91,6 +94,7 @@ export default function BackupPanel({
             "Backups use your app unlock password. No separate password is needed.",
           )}
         </p>
+        <BackupStatus en={lang === "en"} />
         {(needsPassword || useHistorical) && (
           <PasswordKeyboardChoice
             en={lang === "en"}
@@ -130,16 +134,33 @@ export default function BackupPanel({
                 await (await getRepository()).backup(),
                 verifiedPassword,
               );
-              await exportFile(
+              await updateBackupStatus({
+                generatedAt: new Date().toISOString(),
+              });
+              const result = await exportFile(
                 "sfo-travel-" +
                   new Date().toISOString().slice(0, 10) +
                   ".sfo-backup.json",
                 text,
+                "application/json",
+                true,
               );
-              return say(
-                "备份已交给保存/分享界面，请确认已保存到应用之外。",
-                "Backup handed to the save/share dialog. Confirm it was saved outside the app.",
-              );
+              if (result.saved) {
+                await updateBackupStatus({ savedAt: new Date().toISOString() });
+                return say(
+                  "加密备份已保存到你选择的位置。",
+                  "Encrypted backup saved to your chosen location.",
+                );
+              }
+              return Capacitor.getPlatform() === "android"
+                ? say(
+                    "已取消保存；备份已生成，但尚未确认保存到应用外。",
+                    "Saving cancelled. A backup was generated but was not saved outside the app.",
+                  )
+                : say(
+                    "已请求浏览器下载，请确认文件已保存；这不代表已确认保存到应用外。",
+                    "Browser download requested. Check that the file was saved; this does not confirm an external backup.",
+                  );
             })
           }
         >

@@ -3,11 +3,13 @@ import { Filesystem, Directory, Encoding } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
 import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
 import { Browser } from "@capacitor/browser";
+import { TravelDevice } from "./native-device";
 
 export async function exportFile(
   name: string,
   content: string,
   type = "application/json",
+  confirmSave = false,
 ) {
   if (Capacitor.isNativePlatform()) {
     await Filesystem.mkdir({
@@ -40,11 +42,15 @@ export async function exportFile(
       path,
       directory: Directory.Cache,
     });
+    if (confirmSave && Capacitor.getPlatform() === "android") {
+      return TravelDevice.saveDocument({ path, name, type });
+    }
     await Share.share({
       title: name,
       url: uri,
       dialogTitle: "保存或分享 / Save or share",
     });
+    return { saved: false };
   } else {
     const url = URL.createObjectURL(new Blob([content], { type }));
     const a = document.createElement("a");
@@ -52,6 +58,7 @@ export async function exportFile(
     a.download = name;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 60000);
+    return { saved: false };
   }
 }
 export async function captureReceipt(): Promise<File | null> {
@@ -74,6 +81,35 @@ export async function captureReceipt(): Promise<File | null> {
   } catch (error) {
     if (/cancel/i.test(String(error))) return null;
     throw error;
+  }
+}
+export async function prepareReceipt(file: File): Promise<string> {
+  if (!file.type.startsWith("image/"))
+    throw Error("请选择照片 / Please choose a photo");
+  if (file.size > 25 * 1024 * 1024)
+    throw Error("原始照片请小于 25 MB / Choose a photo smaller than 25 MB");
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () =>
+        reject(
+          Error(
+            "无法读取照片，请选择 JPG 或 PNG / Choose a readable JPG or PNG",
+          ),
+        );
+      img.src = url;
+    });
+    const ratio = Math.min(1, 1800 / Math.max(img.width, img.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(img.width * ratio);
+    canvas.height = Math.round(img.height * ratio);
+    canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+    const data = canvas.toDataURL("image/jpeg", 0.85).split(",")[1];
+    return data;
+  } finally {
+    URL.revokeObjectURL(url);
   }
 }
 export async function openExternal(url: string) {

@@ -9,6 +9,7 @@ import { startThemeSync } from "./services/theme";
 import "./globals.css";
 import "./themes.css";
 import "./mobile.css";
+import "./beta.css";
 
 class ErrorBoundary extends Component<
   { children: ReactNode },

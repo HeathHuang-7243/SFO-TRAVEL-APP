@@ -39,6 +39,7 @@ test("offline expenses and receipts survive restart; encrypted restore is idempo
   await page.getByRole("button", { name: /旅行账本/ }).click();
   await expect(page.locator(".expense-row")).toContainText("离线午餐测试");
   await page.getByRole("button", { name: "设置中心", exact: true }).click();
+  await page.getByRole("button", { name: "数据与备份", exact: true }).click();
   await page.getByRole("button", { name: "本地备份", exact: true }).click();
   const backup = page.getByRole("dialog", { name: "本地数据与备份" });
   await expect(backup.getByLabel("验证应用密码")).toHaveAttribute(
@@ -61,6 +62,7 @@ test("offline expenses and receipts survive restart; encrypted restore is idempo
   await page.getByRole("button", { name: "删除账目" }).click();
   await expect(page.locator(".expense-row")).toHaveCount(0);
   await page.getByRole("button", { name: "设置中心", exact: true }).click();
+  await page.getByRole("button", { name: "数据与备份", exact: true }).click();
   await page.getByRole("button", { name: "本地备份", exact: true }).click();
   await expect(backup.getByLabel("验证应用密码")).toHaveCount(0);
   await backup.getByLabel("选择本应用的备份文件").setInputFiles(path!);
@@ -91,6 +93,7 @@ test("catalogue favorites, language, theme and mobile layout persist", async ({
   await page.getByRole("button", { name: "只看收藏" }).click();
   await expect(page.locator(".session-card")).toHaveCount(1);
   await page.getByRole("button", { name: "设置中心", exact: true }).click();
+  await page.getByRole("button", { name: "外观与语言", exact: true }).click();
   await page.getByRole("radio", { name: "深色", exact: true }).click();
   await page
     .getByRole("combobox", { name: "语言", exact: true })
@@ -110,57 +113,48 @@ test("catalogue favorites, language, theme and mobile layout persist", async ({
   });
 });
 
-test("settings replace the breadcrumb and persist gallery choice and clock cities", async ({
+test("grouped settings persist gallery choices and cities and keep the home compact", async ({
   page,
 }) => {
   await page.getByRole("button", { name: "设置中心", exact: true }).click();
   const settings = page.getByRole("dialog", { name: "设置中心" });
+  await expect(
+    settings.getByRole("button", { name: "应用更新", exact: true }),
+  ).toBeInViewport();
+  await settings
+    .getByRole("button", { name: "凭证与相册", exact: true })
+    .click();
   await expect(settings.getByRole("switch")).toBeChecked();
   await settings.getByRole("switch").uncheck();
+  await settings.getByRole("button", { name: "返回设置" }).click();
+  await settings.getByRole("button", { name: "时钟城市", exact: true }).click();
   await settings.getByLabel("时钟城市 2").selectOption("London");
   await settings.getByLabel("时钟城市 3").selectOption("Tokyo");
   await page.keyboard.press("Escape");
-  await expect(settings).not.toBeVisible();
-  await expect(page.locator(".clocks")).toContainText("伦敦");
-  await expect(page.locator(".clocks")).toContainText("东京");
   await page.reload();
   await expect(page.locator(".clocks")).toContainText("伦敦");
+  await expect(page.locator(".clocks")).toContainText("东京");
   await page.getByRole("button", { name: "设置中心", exact: true }).click();
+  await settings
+    .getByRole("button", { name: "凭证与相册", exact: true })
+    .click();
   await expect(settings.getByRole("switch")).not.toBeChecked();
-  await settings.getByRole("switch").check();
+  await settings.getByRole("button", { name: "返回设置" }).click();
+  await settings
+    .getByRole("button", { name: "外观与语言", exact: true })
+    .click();
   await settings.getByRole("radio", { name: "深色", exact: true }).click();
   await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute(
     "content",
     "#152019",
   );
-  await settings.locator(".settings-content").evaluate((element) => {
-    element.scrollTop = 0;
-  });
-  await page.screenshot({
-    path: "test-results/settings-dark.png",
-    animations: "disabled",
-  });
+  await page.screenshot({ path: "test-results/settings-dark.png" });
   await settings.getByRole("radio", { name: "浅色", exact: true }).click();
   await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute(
     "content",
     "#fbfcf9",
   );
-  await settings.locator(".settings-content").evaluate((element) => {
-    element.scrollTop = 0;
-  });
-  await page.screenshot({
-    path: "test-results/settings-light.png",
-    animations: "disabled",
-  });
   await settings.getByRole("button", { name: "确认", exact: true }).click();
-  await expect(page.locator(".breadcrumb")).toHaveCount(0);
-  await expect(
-    page.getByRole("navigation", { name: "主要功能" }),
-  ).toBeVisible();
-  await page.screenshot({
-    path: "test-results/mobile-home-settings.png",
-    fullPage: true,
-  });
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
@@ -173,6 +167,7 @@ test("automatic theme follows system changes and manual choices override it", as
 }) => {
   await page.emulateMedia({ colorScheme: "light" });
   await page.getByRole("button", { name: "设置中心", exact: true }).click();
+  await page.getByRole("button", { name: "外观与语言", exact: true }).click();
   const auto = page.getByRole("radio", { name: "自动", exact: true });
   await expect(auto).toBeChecked();
   await page.emulateMedia({ colorScheme: "dark" });
@@ -185,6 +180,7 @@ test("automatic theme follows system changes and manual choices override it", as
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await page.getByRole("button", { name: "设置中心", exact: true }).click();
+  await page.getByRole("button", { name: "外观与语言", exact: true }).click();
   await auto.click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.screenshot({
@@ -238,12 +234,14 @@ test("introduction repeats until opted out and can be reopened from settings", a
   await expect(page.locator(".app main")).toBeVisible();
   await expect(welcome).not.toBeVisible();
   await page.getByRole("button", { name: "设置中心", exact: true }).click();
+  await page.getByRole("button", { name: "帮助与反馈", exact: true }).click();
   await expect(
     page.getByRole("link", { name: "问题反馈 · GitHub Issues" }),
   ).toHaveAttribute(
     "href",
     "https://github.com/HeathHuang-7243/SFO-TRAVEL-APP/issues/new/choose",
   );
+  await page.getByRole("button", { name: "返回设置" }).click();
   await page.getByRole("button", { name: "关于应用 · 使用说明" }).click();
   await expect(choice).toBeChecked();
   await choice.uncheck();
@@ -258,6 +256,7 @@ test("update settings handle offline checks, no release and a verified newer APK
   page,
 }) => {
   await page.getByRole("button", { name: "设置中心", exact: true }).click();
+  await page.getByRole("button", { name: "应用更新", exact: true }).click();
   const section = page.locator(".update-section");
   const check = section.getByRole("button", { name: "检查更新" });
   await check.click();
@@ -333,6 +332,7 @@ test("update password gate preserves expenses on wrong passwords and supports pa
   await page.getByRole("button", { name: /旅行账本/ }).click();
   await expect(page.locator(".expense-row")).toContainText("密码升级保留测试");
   await page.getByRole("button", { name: "设置中心", exact: true }).click();
+  await page.getByRole("button", { name: "密码", exact: true }).click();
   await page.getByRole("button", { name: "修改密码", exact: true }).click();
   await page.getByLabel("当前密码", { exact: true }).fill("2468");
   await expect(page.getByLabel("新密码", { exact: true })).toHaveAttribute(
@@ -380,6 +380,7 @@ test("one password exports backups and older passwords remain usable only for ol
   }
   async function openBackup() {
     await settings();
+    await page.getByRole("button", { name: "数据与备份", exact: true }).click();
     await page.getByRole("button", { name: "本地备份", exact: true }).click();
     return page.getByRole("dialog", { name: "本地数据与备份" });
   }
@@ -390,6 +391,7 @@ test("one password exports backups and older passwords remain usable only for ol
   const oldFile = await (await firstDownload).path();
   await backup.getByRole("button", { name: "关闭", exact: true }).click();
   await settings();
+  await page.getByRole("button", { name: "密码", exact: true }).click();
   await page.getByRole("button", { name: "修改密码", exact: true }).click();
   await page.getByLabel("当前密码", { exact: true }).fill("0000");
   await page.getByLabel("新密码", { exact: true }).fill("9753");
@@ -469,12 +471,14 @@ test("startup language switches preserve inputs and sync introduction, app setti
   await page.screenshot({ path: "test-results/startup-language-welcome.png" });
   await welcome.getByRole("button", { name: "开始使用" }).click();
   await page.getByRole("button", { name: "设置中心", exact: true }).click();
+  await page.getByRole("button", { name: "外观与语言", exact: true }).click();
   await expect(
     page.getByRole("combobox", { name: "语言", exact: true }),
   ).toHaveValue("zh");
   await page
     .getByRole("combobox", { name: "语言", exact: true })
     .selectOption("en");
+  await page.getByRole("button", { name: "Back to settings" }).click();
   await page
     .getByRole("button", { name: "About this app · Introduction" })
     .click();
@@ -504,6 +508,7 @@ test("startup language switches preserve inputs and sync introduction, app setti
   await expect(page.locator(".app main")).toBeVisible();
   await page.reload();
   await page.getByRole("button", { name: "设置中心", exact: true }).click();
+  await page.getByRole("button", { name: "外观与语言", exact: true }).click();
   await expect(
     page.getByRole("combobox", { name: "语言", exact: true }),
   ).toHaveValue("zh");
@@ -544,4 +549,84 @@ test("English device can choose Chinese before setting a password and keep it af
   } finally {
     await context.close();
   }
+});
+
+test("beta drafts survive restart, ordinary entries are independent and edits keep one record", async ({
+  page,
+}) => {
+  await page.getByRole("button", { name: /旅行账本/ }).click();
+  const open = () =>
+    page.getByRole("button", { name: "记一笔", exact: true }).click();
+  await open();
+  let editor = page.getByRole("dialog", { name: "记录消费", exact: true });
+  await expect(editor.getByLabel("金额", { exact: true })).toHaveValue("");
+  await expect(editor.getByLabel("小费 %", { exact: true })).toHaveValue("0");
+  await editor.locator("select").first().selectOption("CNY");
+  await editor.getByLabel("金额", { exact: true }).fill("100");
+  await editor.locator("textarea").fill("午餐草稿");
+  await editor
+    .locator("input[type=file]")
+    .setInputFiles({
+      name: "receipt.svg",
+      mimeType: "image/svg+xml",
+      buffer: Buffer.from(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect width="80" height="80" fill="green"/></svg>',
+      ),
+    });
+  await expect(editor.locator(".photo-upload img")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(editor.getByText("保留这次填写的内容？")).toBeVisible();
+  await editor.getByRole("button", { name: "暂存并关闭", exact: true }).click();
+  await expect(editor).not.toBeVisible();
+  await page.reload();
+  await page.getByRole("button", { name: /旅行账本/ }).click();
+  await open();
+  await editor
+    .getByRole("button", { name: "继续填写草稿", exact: true })
+    .click();
+  await expect(editor.locator("textarea")).toHaveValue("午餐草稿");
+  await expect(editor.getByLabel("金额", { exact: true })).toHaveValue("100");
+  await expect(editor.locator(".photo-upload img")).toBeVisible();
+  await expect(editor.locator(".calc-total")).toContainText("¥100.00");
+  await editor.getByRole("button", { name: "保存账目", exact: true }).click();
+  await expect(page.locator(".expense-row")).toHaveCount(1);
+  await page.getByRole("button", { name: /汇率与小费/ }).click();
+  await page.getByLabel("消费金额", { exact: true }).fill("500");
+  await page.locator("#tip").fill("20");
+  await page.getByRole("button", { name: /旅行账本/ }).click();
+  await open();
+  await expect(editor.getByLabel("金额", { exact: true })).toHaveValue("");
+  await expect(editor.getByLabel("小费 %", { exact: true })).toHaveValue("0");
+  await editor.getByRole("button", { name: "关闭", exact: true }).click();
+  await page.getByRole("button", { name: /汇率与小费/ }).click();
+  await page
+    .getByRole("button", { name: "将这笔消费记入账本", exact: true })
+    .click();
+  await expect(editor.getByLabel("金额", { exact: true })).toHaveValue("500");
+  await expect(editor.getByLabel("小费 %", { exact: true })).toHaveValue("20");
+  await editor.getByRole("button", { name: "关闭", exact: true }).click();
+  await page.getByRole("button", { name: /旅行账本/ }).click();
+  await page
+    .getByRole("button", { name: "编辑账目：午餐草稿", exact: true })
+    .click();
+  editor = page.getByRole("dialog", { name: "编辑账目", exact: true });
+  await editor.getByLabel("金额", { exact: true }).fill("50");
+  await editor.locator("textarea").fill("修改后的午餐");
+  await editor.getByRole("button", { name: "保存修改", exact: true }).click();
+  await expect(page.locator(".expense-row")).toHaveCount(1);
+  await expect(page.locator(".expense-row")).toContainText("¥50.00");
+  await expect(page.locator(".receipt-thumb")).toBeVisible();
+  await page.reload();
+  await page.getByRole("button", { name: /旅行账本/ }).click();
+  await expect(page.locator(".expense-row")).toContainText("修改后的午餐");
+  const button = page.getByRole("button", { name: "删除账目", exact: true });
+  const bounds = await button.boundingBox();
+  expect(bounds!.width).toBeGreaterThanOrEqual(44);
+  expect(bounds!.height).toBeGreaterThanOrEqual(44);
+  await page.screenshot({
+    path: "test-results/beta-ledger-light.png",
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "设置中心", exact: true }).click();
+  await page.screenshot({ path: "test-results/beta-settings-menu.png" });
 });

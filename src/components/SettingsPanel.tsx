@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import {
   X,
+  ArrowLeft,
+  ChevronRight,
+  Download,
+  LockKeyhole,
   ImagePlus,
   MapPin,
   Palette,
@@ -15,6 +19,7 @@ import type { Preferences } from "../services/preferences";
 import ThemeToggle from "./ThemeToggle";
 import UpdatePanel from "./UpdatePanel";
 import PasswordSettings from "./PasswordSettings";
+import BackupStatus from "./BackupStatus";
 
 export default function SettingsPanel({
   lang,
@@ -34,6 +39,18 @@ export default function SettingsPanel({
   onClose: () => void;
 }) {
   const panel = useRef<HTMLElement>(null);
+  const [page, setPage] = useState("home");
+  useEffect(() => {
+    panel.current?.querySelector(".settings-content")?.scrollTo(0, 0);
+  }, [page]);
+  useEffect(() => {
+    const back = () => {
+      if (page === "home") onClose();
+      else setPage("home");
+    };
+    window.addEventListener("sfo-settings-back", back);
+    return () => window.removeEventListener("sfo-settings-back", back);
+  }, [page, onClose]);
   const [error, setError] = useState("");
   const en = lang === "en";
   useEffect(() => {
@@ -87,6 +104,15 @@ export default function SettingsPanel({
       >
         <div className="settings-content">
           <div className="row between">
+            {page !== "home" && (
+              <button
+                className="iconbutton"
+                aria-label={en ? "Back to settings" : "返回设置"}
+                onClick={() => setPage("home")}
+              >
+                <ArrowLeft />
+              </button>
+            )}
             <div>
               <span className="eyebrow">ON YOUR DEVICE</span>
               <h2 id="settings-title">{en ? "Settings" : "设置中心"}</h2>
@@ -99,133 +125,201 @@ export default function SettingsPanel({
               <X />
             </button>
           </div>
-          <section className="settings-section">
-            <h3>
-              <ImagePlus size={18} />
-              {en ? "Receipt photos" : "凭证照片"}
-            </h3>
-            <label className="settings-switch">
-              <span>
-                {en
-                  ? "Also save receipt photos to gallery"
-                  : "记录支出时同时保存到相册"}
-              </span>
-              <input
-                type="checkbox"
-                role="switch"
-                checked={preferences.saveToGallery}
-                onChange={(e) =>
-                  change({ ...preferences, saveToGallery: e.target.checked })
-                }
-              />
-            </label>
-            <p className="fineprint">
-              {en
-                ? "After an expense is saved, copy its photo to Pictures / SFO Travel. Your private receipt stays in the app. Deleting an expense does not delete its gallery copy."
-                : "账目保存成功后，将凭证另存到相册的 SFO Travel 文件夹。应用内仍保留凭证；删除账目不会删除相册中的副本。"}
-            </p>
-            <p className="fineprint">
-              {en
-                ? "Android 10+ does not require access to your photo library to add a photo. Older Android versions ask for storage permission when saving. Declining keeps your expense and private receipt safe."
-                : "Android 10 及以上无需读取相册权限即可添加照片；旧版安卓会在保存时请求存储权限。拒绝授权不影响账目和应用内凭证。"}
-            </p>
-            {Capacitor.getPlatform() !== "android" && (
-              <p className="notice">
-                {en
-                  ? "Gallery copying is available in the Android app. This preview only saves your preference."
-                  : "相册保存仅在安卓应用中生效，当前预览只保存设置。"}
-              </p>
-            )}
-          </section>
-          <section className="settings-section">
-            <h3>
-              <MapPin size={18} />
-              {en ? "World clocks" : "时钟城市"}
-            </h3>
-            <p className="fineprint">
-              {en
-                ? "Choose the three cities shown at the top. Date offsets are relative to the second city."
-                : "选择顶部显示的三个城市，日期差以第二个城市为基准。"}
-            </p>
-            {preferences.cities.map((city, index) => (
-              <label className="label" key={index}>
-                {en ? `Clock city ${index + 1}` : `时钟城市 ${index + 1}`}
-                <select
-                  value={city}
-                  onChange={(e) =>
-                    change({
-                      ...preferences,
-                      cities: preferences.cities.map((value, i) =>
-                        i === index ? e.target.value : value,
-                      ),
-                    })
-                  }
+          {page === "home" && (
+            <div
+              role="navigation"
+              className="settings-menu"
+              aria-label={en ? "Settings sections" : "设置分类"}
+            >
+              {[
+                [
+                  "appearance",
+                  en ? "Appearance & language" : "外观与语言",
+                  <Palette size={21} />,
+                ],
+                [
+                  "cities",
+                  en ? "World clocks" : "时钟城市",
+                  <MapPin size={21} />,
+                ],
+                [
+                  "photos",
+                  en ? "Receipt photos" : "凭证与相册",
+                  <ImagePlus size={21} />,
+                ],
+                [
+                  "data",
+                  en ? "Data & backup" : "数据与备份",
+                  <ShieldCheck size={21} />,
+                ],
+                [
+                  "password",
+                  en ? "Password" : "密码",
+                  <LockKeyhole size={21} />,
+                ],
+                [
+                  "updates",
+                  en ? "App updates" : "应用更新",
+                  <Download size={21} />,
+                ],
+                [
+                  "help",
+                  en ? "Help & feedback" : "帮助与反馈",
+                  <MessageSquare size={21} />,
+                ],
+              ].map(([id, label, icon]) => (
+                <button
+                  key={String(id)}
+                  type="button"
+                  onClick={() => setPage(String(id))}
                 >
-                  {availableCities.map((c) => (
-                    <option key={c.en} value={c.en}>
-                      {c[lang]}
-                    </option>
-                  ))}
+                  {icon}
+                  <span>{label}</span>
+                  <ChevronRight size={18} />
+                </button>
+              ))}
+            </div>
+          )}
+          {page === "photos" && (
+            <section className="settings-section">
+              <h3>
+                <ImagePlus size={18} />
+                {en ? "Receipt photos" : "凭证照片"}
+              </h3>
+              <label className="settings-switch">
+                <span>
+                  {en
+                    ? "Also save receipt photos to gallery"
+                    : "记录支出时同时保存到相册"}
+                </span>
+                <input
+                  type="checkbox"
+                  role="switch"
+                  checked={preferences.saveToGallery}
+                  onChange={(e) =>
+                    change({ ...preferences, saveToGallery: e.target.checked })
+                  }
+                />
+              </label>
+              <p className="fineprint">
+                {en
+                  ? "After an expense is saved, copy its photo to Pictures / SFO Travel. Your private receipt stays in the app. Deleting an expense does not delete its gallery copy."
+                  : "账目保存成功后，将凭证另存到相册的 SFO Travel 文件夹。应用内仍保留凭证；删除账目不会删除相册中的副本。"}
+              </p>
+              <p className="fineprint">
+                {en
+                  ? "Android 10+ does not require access to your photo library to add a photo. Older Android versions ask for storage permission when saving. Declining keeps your expense and private receipt safe."
+                  : "Android 10 及以上无需读取相册权限即可添加照片；旧版安卓会在保存时请求存储权限。拒绝授权不影响账目和应用内凭证。"}
+              </p>
+              {Capacitor.getPlatform() !== "android" && (
+                <p className="notice">
+                  {en
+                    ? "Gallery copying is available in the Android app. This preview only saves your preference."
+                    : "相册保存仅在安卓应用中生效，当前预览只保存设置。"}
+                </p>
+              )}
+            </section>
+          )}
+          {page === "cities" && (
+            <section className="settings-section">
+              <h3>
+                <MapPin size={18} />
+                {en ? "World clocks" : "时钟城市"}
+              </h3>
+              <p className="fineprint">
+                {en
+                  ? "Choose the three cities shown at the top. Date offsets are relative to the second city."
+                  : "选择顶部显示的三个城市，日期差以第二个城市为基准。"}
+              </p>
+              {preferences.cities.map((city, index) => (
+                <label className="label" key={index}>
+                  {en ? `Clock city ${index + 1}` : `时钟城市 ${index + 1}`}
+                  <select
+                    value={city}
+                    onChange={(e) =>
+                      change({
+                        ...preferences,
+                        cities: preferences.cities.map((value, i) =>
+                          i === index ? e.target.value : value,
+                        ),
+                      })
+                    }
+                  >
+                    {availableCities.map((c) => (
+                      <option key={c.en} value={c.en}>
+                        {c[lang]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ))}
+            </section>
+          )}
+          {page === "appearance" && (
+            <section className="settings-section">
+              <h3>
+                <Palette size={18} />
+                {en ? "Appearance & language" : "外观与语言"}
+              </h3>
+              <ThemeToggle lang={lang} />
+              <label className="label">
+                {en ? "Language" : "语言"}
+                <select
+                  value={lang}
+                  onChange={(e) => onLanguage(e.target.value as Language)}
+                >
+                  <option value="zh">中文</option>
+                  <option value="en">English</option>
                 </select>
               </label>
-            ))}
-          </section>
-          <section className="settings-section">
-            <h3>
-              <Palette size={18} />
-              {en ? "Appearance & language" : "外观与语言"}
-            </h3>
-            <ThemeToggle lang={lang} />
-            <label className="label">
-              {en ? "Language" : "语言"}
-              <select
-                value={lang}
-                onChange={(e) => onLanguage(e.target.value as Language)}
+            </section>
+          )}
+          {page === "data" && (
+            <section className="settings-section">
+              <h3>
+                <ShieldCheck size={18} />
+                {en ? "Local data" : "本地数据"}
+              </h3>
+              <BackupStatus en={en} />
+              <button className="secondary" onClick={onBackup}>
+                {en ? "Backup & restore" : "本地备份"}
+              </button>
+              <p className="fineprint">
+                {en
+                  ? "Settings stay on this device. Encrypted backups contain your expenses, private receipt photos and favorites."
+                  : "设置保存在本机。加密备份包含账目、应用内凭证和收藏。"}
+              </p>
+            </section>
+          )}
+          {page === "help" && (
+            <section className="settings-section">
+              <h3>
+                <MessageSquare size={18} />
+                {en ? "Help & feedback" : "帮助与反馈"}
+              </h3>
+              <a
+                className="secondary"
+                href="https://github.com/HeathHuang-7243/SFO-TRAVEL-APP/issues/new/choose"
+                target="_blank"
+                rel="noopener noreferrer"
               >
-                <option value="zh">中文</option>
-                <option value="en">English</option>
-              </select>
-            </label>
-          </section>
-          <section className="settings-section">
-            <h3>
-              <ShieldCheck size={18} />
-              {en ? "Local data" : "本地数据"}
-            </h3>
-            <button className="secondary" onClick={onBackup}>
-              {en ? "Backup & restore" : "本地备份"}
+                {en ? "Report an issue · GitHub" : "问题反馈 · GitHub Issues"}
+                <ExternalLink size={16} />
+              </a>
+              <p className="fineprint">
+                {en
+                  ? "A GitHub account is needed. Feedback is public: please do not upload personal expenses, receipts or backup files."
+                  : "需要 GitHub 账号。反馈会公开显示，请勿上传个人账目、凭证或备份文件。"}
+              </p>
+            </section>
+          )}
+          {page === "password" && <PasswordSettings lang={lang} />}
+          {page === "updates" && <UpdatePanel lang={lang} />}
+          {page === "home" && (
+            <button className="secondary settings-about" onClick={onAbout}>
+              {en ? "About this app · Introduction" : "关于应用 · 使用说明"}
             </button>
-            <p className="fineprint">
-              {en
-                ? "Settings stay on this device. Encrypted backups contain your expenses, private receipt photos and favorites."
-                : "设置保存在本机。加密备份包含账目、应用内凭证和收藏。"}
-            </p>
-          </section>
-          <section className="settings-section">
-            <h3>
-              <MessageSquare size={18} />
-              {en ? "Help & feedback" : "帮助与反馈"}
-            </h3>
-            <a
-              className="secondary"
-              href="https://github.com/HeathHuang-7243/SFO-TRAVEL-APP/issues/new/choose"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {en ? "Report an issue · GitHub" : "问题反馈 · GitHub Issues"}
-              <ExternalLink size={16} />
-            </a>
-            <p className="fineprint">
-              {en
-                ? "A GitHub account is needed. Feedback is public: please do not upload personal expenses, receipts or backup files."
-                : "需要 GitHub 账号。反馈会公开显示，请勿上传个人账目、凭证或备份文件。"}
-            </p>
-          </section>
-          <PasswordSettings lang={lang} />
-          <UpdatePanel lang={lang} />
-          <button className="secondary settings-about" onClick={onAbout}>
-            {en ? "About this app · Introduction" : "关于应用 · 使用说明"}
-          </button>
+          )}
           {error && (
             <p role="alert" className="notice">
               {error}

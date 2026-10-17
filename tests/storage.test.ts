@@ -61,6 +61,65 @@ function setup() {
   };
 }
 describe("local personal records", () => {
+  it("edits without changing identity, historical rates, receipt or creation time", async () => {
+    const s = setup();
+    const original = await s.repo.add(input, jpeg);
+    const edited = await s.repo.update(original.id, {
+      ...input,
+      amount: 50,
+      tip: 0,
+      currency: "EUR",
+      usdCny: 99,
+      usdEur: 99,
+      description: "Edited",
+    });
+    expect(edited).toMatchObject({
+      id: original.id,
+      amount: 50,
+      total: 50,
+      cny: 400,
+      eur: 50,
+      usd_cny: 7.2,
+      usd_eur: 0.9,
+      created_at: original.created_at,
+      rate_snapshot_at: original.rate_snapshot_at,
+      photo_key: original.photo_key,
+    });
+    expect((await s.repo.read()).expenses).toHaveLength(1);
+    expect(s.files.size).toBe(1);
+  });
+  it("rolls back failed receipt replacements and removes the old file only after commit", async () => {
+    const s = setup();
+    const original = await s.repo.add(input, jpeg);
+    s.setFailure(true);
+    await expect(
+      s.repo.update(original.id, { ...input, amount: 42 }, jpeg),
+    ).rejects.toThrow("Disk full");
+    expect((await s.repo.read()).expenses).toEqual([original]);
+    expect([...s.files.keys()]).toEqual([original.photo_key]);
+    s.setFailure(false);
+    const next = await s.repo.update(
+      original.id,
+      { ...input, amount: 42 },
+      jpeg,
+    );
+    expect(next.photo_key).not.toBe(original.photo_key);
+    expect(s.files.has(original.photo_key!)).toBe(false);
+    await s.repo.update(next.id, input, null);
+    expect(s.files.size).toBe(0);
+    expect((await s.repo.read()).expenses[0].photo_key).toBeNull();
+  });
+  it("retries a submitted draft without creating duplicate expenses", async () => {
+    const s = setup();
+    const value = { ...input, clientId: "same-draft" };
+    const [a, b] = await Promise.all([
+      s.repo.add(value, jpeg),
+      s.repo.add(value, jpeg),
+    ]);
+    expect(a).toEqual(b);
+    expect((await s.repo.read()).expenses).toHaveLength(1);
+    expect(s.files.size).toBe(1);
+  });
   it("captures immutable FX values and persists across repository restarts", async () => {
     const s = setup();
     const expense = await s.repo.add(input, jpeg);

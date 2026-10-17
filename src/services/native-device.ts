@@ -5,15 +5,18 @@ import {
 } from "@capacitor/core";
 
 export const TravelDevice = registerPlugin<{
-  setTheme(options: {
-    mode: "light" | "dark" | "auto";
-  }): Promise<void>;
+  setTheme(options: { mode: "light" | "dark" | "auto" }): Promise<void>;
   getSystemTheme(): Promise<{ dark: boolean }>;
   addListener(
     event: "systemThemeChanged",
     listener: (theme: { dark: boolean }) => void,
   ): Promise<PluginListenerHandle>;
   saveReceiptToGallery(options: { path: string }): Promise<{ uri: string }>;
+  saveDocument(options: {
+    path: string;
+    name: string;
+    type: string;
+  }): Promise<{ saved: boolean }>;
 }>("TravelDevice");
 
 export async function syncSystemTheme(

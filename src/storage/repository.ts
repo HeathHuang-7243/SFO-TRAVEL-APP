@@ -38,7 +38,15 @@ export class Repository {
   add(input: Record<string, unknown>, photo?: string) {
     return this.exclusive(async () => {
       const p = await this.read();
-      const e = createExpense(input, crypto.randomUUID());
+      if (input.clientId !== undefined && !safeId(input.clientId))
+        throw Error("Invalid expense ID");
+      const id =
+        typeof input.clientId === "string"
+          ? input.clientId
+          : crypto.randomUUID();
+      const existing = p.expenses.find((e) => e.id === id);
+      if (existing) return existing;
+      const e = createExpense(input, id);
       if (photo) {
         validatePhoto(photo);
         e.photo_key = `receipts/${e.id}.jpg`;
@@ -65,6 +73,47 @@ export class Repository {
       // A failed file cleanup never makes a successfully deleted expense reappear.
       if (item.photo_key)
         await this.files.remove(item.photo_key).catch(() => {});
+    });
+  }
+  update(id: string, input: Record<string, unknown>, photo?: string | null) {
+    return this.exclusive(async () => {
+      const p = await this.read();
+      const previous = p.expenses.find((e) => e.id === id);
+      if (!previous) throw Error("未找到记录 / Record not found");
+      // Edits use the original FX snapshot, never a refreshed market rate.
+      const next = {
+        ...createExpense(
+          {
+            ...input,
+            usdCny: previous.usd_cny,
+            usdEur: previous.usd_eur,
+            rateInfo: previous.rate_info,
+          },
+          id,
+          previous.created_at,
+        ),
+        rate_snapshot_at: previous.rate_snapshot_at,
+        photo_key: previous.photo_key,
+      };
+      if (photo === null) next.photo_key = null;
+      else if (photo !== undefined) {
+        validatePhoto(photo);
+        next.photo_key = `receipts/${crypto.randomUUID()}.jpg`;
+        await this.files.write(next.photo_key, photo);
+      }
+      try {
+        await this.write({
+          ...p,
+          expenses: p.expenses.map((e) => (e.id === id ? next : e)),
+        });
+      } catch (error) {
+        if (next.photo_key && next.photo_key !== previous.photo_key)
+          await this.files.remove(next.photo_key).catch(() => {});
+        throw error;
+      }
+      if (previous.photo_key && previous.photo_key !== next.photo_key)
+        await this.files.remove(previous.photo_key).catch(() => {});
+      return next;
     });
   }
   favorite(id: string, selected: boolean) {

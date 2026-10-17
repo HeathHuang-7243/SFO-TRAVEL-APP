@@ -18,6 +18,8 @@ describe("stable updates", () => {
     expect(versionCode("1.10.0")).toBeGreaterThan(versionCode("1.9.9"));
     expect(parseUpdate(release(), "1.1.3")?.version).toBe("1.2.0");
     expect(parseUpdate(release(), "1.2.0")).toBeNull();
+    expect(parseUpdate(release(), "1.2.0b")).toBeNull();
+    expect(parseUpdate(release(), "1.1.3b")?.version).toBe("1.2.0");
     expect(parseUpdate(release(), "2.0.0")).toBeNull();
     expect(parseUpdate({ ...release(), prerelease: true }, "1.1.3")).toBeNull();
   });
