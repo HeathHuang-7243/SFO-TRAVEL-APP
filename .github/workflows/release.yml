@@ -64,15 +64,17 @@ jobs:
           packages: "platform-tools platforms;android-35 build-tools;35.0.0"
       - uses: gradle/actions/setup-gradle@v4
       - run: npx cap sync android
-      - name: Build older-version fixture for upgrade verification
+      - name: Download verified stable and accepted beta upgrade baselines
         env:
-          SFO_SIGNING_BUNDLE: ${{ secrets.SFO_SIGNING_BUNDLE }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          cp package.json "$RUNNER_TEMP/sfo-package.json"
-          trap 'cp "$RUNNER_TEMP/sfo-package.json" package.json' EXIT
-          node -e 'const fs=require("fs");const p=JSON.parse(fs.readFileSync("package.json"));p.version="0.0.1";fs.writeFileSync("package.json",JSON.stringify(p))'
-          node scripts/build-release.mjs
-          cp android/app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/sfo-upgrade-baseline.apk"
+          mkdir -p "$RUNNER_TEMP/sfo-baselines/stable" "$RUNNER_TEMP/sfo-baselines/beta"
+          gh release download v1.3.4 --pattern 'SFOBusinessTravel-v1.3.4.apk' --pattern SHA256SUMS --dir "$RUNNER_TEMP/sfo-baselines/stable"
+          (cd "$RUNNER_TEMP/sfo-baselines/stable" && sha256sum -c SHA256SUMS)
+          if [ "$RELEASE_TAG" = v1.4.0 ]; then
+            gh run download 39065121664 --name SFOBusinessTravel-v1.3.4b --dir "$RUNNER_TEMP/sfo-baselines/beta"
+            echo "3720bc5d7e4657c25add6c6dd5ed88a0a12b4c66c4a34b613003d5d82211d5e9  $RUNNER_TEMP/sfo-baselines/beta/SFOBusinessTravel-v1.3.4b.apk" | sha256sum -c -
+          fi
       - name: Build signed APK
         env:
           SFO_SIGNING_BUNDLE: ${{ secrets.SFO_SIGNING_BUNDLE }}
@@ -101,7 +103,13 @@ jobs:
           disk-size: 2048M
           emulator-boot-timeout: 300
           disable-animations: true
-          script: bash scripts/test-upgrade.sh "$RUNNER_TEMP/sfo-upgrade-baseline.apk" android/app/build/outputs/apk/release/app-release.apk
+          script: |
+            bash scripts/test-upgrade.sh "$RUNNER_TEMP/sfo-baselines/stable/SFOBusinessTravel-v1.3.4.apk" android/app/build/outputs/apk/release/app-release.apk
+            if [ "$RELEASE_TAG" = v1.4.0 ]; then
+              test "$GITHUB_ACTIONS" = true && test "$(adb shell getprop ro.kernel.qemu | tr -d '\r')" = 1
+              adb uninstall com.heathhuang.sfotravel
+              bash scripts/test-upgrade.sh "$RUNNER_TEMP/sfo-baselines/beta/SFOBusinessTravel-v1.3.4b.apk" android/app/build/outputs/apk/release/app-release.apk
+            fi
       - name: Upload upgrade failure evidence
         if: failure()
         uses: actions/upload-artifact@v4
