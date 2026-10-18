@@ -1,6 +1,6 @@
 {
   "name": "sfo-travel-app",
-  "version": "1.4.0",
+  "version": "1.4.0-b",
   "private": true,
   "type": "module",
   "engines": {

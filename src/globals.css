@@ -2548,23 +2548,15 @@ html[lang="en"] .place-body small {
     max-width: 68px;
   }
 }
+@media (max-width: 680px) {
+  html[lang="en"] .stat strong {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
 @media (max-width: 420px) {
   html[lang="en"] .places-grid {
     grid-template-columns: 1fr;
-  }
-  html[lang="en"] .stat-grid {
-    grid-template-columns: 1fr;
-  }
-  html[lang="en"] .stat {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-  }
-  html[lang="en"] .stat strong {
-    margin-top: 5px;
-  }
-  html[lang="en"] .stat p {
-    margin: 3px 0;
   }
   .breadcrumb {
     flex-wrap: wrap;

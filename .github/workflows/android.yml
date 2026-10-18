@@ -1,16 +1,13 @@
-name: Android checks and debug APK
+name: Beta checks and signed APK
 on:
-  push:
-    branches: [main]
-  pull_request:
   workflow_dispatch:
 permissions:
   contents: read
 concurrency:
-  group: android-${{ github.ref }}
+  group: beta-${{ github.ref }}
   cancel-in-progress: true
 jobs:
-  verify:
+  beta:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -19,15 +16,12 @@ jobs:
         with:
           node-version: "22"
           cache: npm
+      - name: Require the requested test version
+        run: node -e 'if(require("./package.json").version!=="1.4.0-b")process.exit(1)'
       - run: npm ci
       - run: npm run check
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
-      - uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: browser-test-results
-          path: test-results/
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -39,18 +33,37 @@ jobs:
       - run: npx cap sync android
       - run: ./gradlew assembleDebug :app:testDebugUnitTest lintDebug --no-daemon
         working-directory: android
-      - name: Reserve disk space for the emulator
-        # Hosted runner only. This app uses prebuilt native libraries, not the NDK.
+      - name: Build fixed-signature beta APK
+        env:
+          SFO_SIGNING_BUNDLE: ${{ secrets.SFO_SIGNING_BUNDLE }}
+        run: node scripts/build-release.mjs
+      - name: Verify beta package and original release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir beta baseline
+          cp android/app/build/outputs/apk/release/app-release.apk beta/SFOBusinessTravel-v1.4.0b.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs beta/*.apk > beta/signature.txt
+          actual="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' beta/signature.txt)"
+          test "$actual" = "$(cat android/release-certificate.sha256)"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging beta/*.apk > beta/package-info.txt
+          python - <<'PY'
+          from pathlib import Path
+          info=Path('beta/package-info.txt').read_text().splitlines()[0]
+          assert "name='com.heathhuang.sfotravel'" in info
+          assert "versionName='1.4.0b'" in info
+          assert "versionCode='1004000'" in info
+          PY
+          (cd beta && sha256sum *.apk > SHA256SUMS)
+          gh release download v1.4.0 --repo "$GITHUB_REPOSITORY" --pattern '*.apk' --pattern SHA256SUMS --dir baseline
+          (cd baseline && sha256sum -c SHA256SUMS)
+      - name: Prepare isolated emulator
         run: |
           sudo rm -rf /usr/share/dotnet "${ANDROID_HOME:?}/ndk"
-          df -h "$HOME"
-      - name: Enable emulator acceleration
-        run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - name: Test native SQLite startup and WebView reload
-        timeout-minutes: 15
+      - name: Verify native storage and upgrade from the published v1.4.0
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -61,18 +74,22 @@ jobs:
           disable-animations: true
           script: |
             ./android/gradlew -p android :app:connectedDebugAndroidTest --no-daemon
-            adb pull /sdcard/Download/test-status-dark.png android/app/build/reports/androidTests/status-dark.png
-            adb pull /sdcard/Download/test-status-light.png android/app/build/reports/androidTests/status-light.png
-      - uses: actions/upload-artifact@v4
-        if: always()
+            bash scripts/test-upgrade.sh baseline/SFOBusinessTravel-v1.4.0.apk beta/SFOBusinessTravel-v1.4.0b.apk
+      - name: Upload test APK (no release or tag)
+        uses: actions/upload-artifact@v4
         with:
-          name: native-storage-test-results
+          name: SFOBusinessTravel-v1.4.0b
+          path: beta/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: beta-test-evidence
           path: |
+            test-results/
             android/app/build/reports/androidTests/
             android/app/build/outputs/androidTest-results/
-      - uses: actions/upload-artifact@v4
-        with:
-          name: SFO-TRAVEL-APP-debug-${{ github.sha }}
-          path: android/app/build/outputs/apk/debug/*.apk
-          if-no-files-found: error
+          if-no-files-found: ignore
           retention-days: 14
