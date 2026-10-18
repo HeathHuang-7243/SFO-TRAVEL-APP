@@ -103,13 +103,7 @@ jobs:
           disk-size: 2048M
           emulator-boot-timeout: 300
           disable-animations: true
-          script: |
-            bash scripts/test-upgrade.sh "$RUNNER_TEMP/sfo-baselines/stable/SFOBusinessTravel-v1.3.4.apk" android/app/build/outputs/apk/release/app-release.apk
-            if [ "$RELEASE_TAG" = v1.4.0 ]; then
-              test "$GITHUB_ACTIONS" = true && test "$(adb shell getprop ro.kernel.qemu | tr -d '\r')" = 1
-              adb uninstall com.heathhuang.sfotravel
-              bash scripts/test-upgrade.sh "$RUNNER_TEMP/sfo-baselines/beta/SFOBusinessTravel-v1.3.4b.apk" android/app/build/outputs/apk/release/app-release.apk
-            fi
+          script: bash scripts/test-release-upgrades.sh
       - name: Upload upgrade failure evidence
         if: failure()
         uses: actions/upload-artifact@v4
